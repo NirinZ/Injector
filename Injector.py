@@ -67,9 +67,10 @@ class Injector:
         self.read_from_file()
         end_time = time.time()
         total_time = end_time - start_time
+        print()
         print("Time: ", total_time)
         self.img.show()
-        self.img.save("save.jpg")
+        self.img.save("save.png")
 
     @staticmethod
     def full_byte(bina):
@@ -92,18 +93,19 @@ class Injector:
 
 
     def make_pixel(self, tempicx):
-        current_pixel = self.pixels[self.row, self.column]
+        current_pixel = self.pixels[self.column, self.row]
         new_pixel = []
         for i in current_pixel:  #\/ removing the least significant bit from original pixel
-            new_pixel.append(int(bin(i)[2:][:-self.bit_num] + self.temp_pixel[:self.bit_num], 2))
+            new_pixel.append(int(bin(i)[2:][:-self.bit_num] + tempicx[:self.bit_num], 2))
             # new_pixel.append(0)
             tempicx = tempicx[self.bit_num:]           # /\ adding the new pixel
 
         # print(new_pixel)
-        self.pixels[self.row, self.column] = tuple(new_pixel)
-        if self.column == self.img.size[1] - 1:
+        self.pixels[self.column, self.row] = tuple(new_pixel)
+        if self.column == self.img.size[0] - 1:
             self.column = 0
             self.row += 1
+            print(100 * self.row/ self.img.size[1],"%", end="            \r")
         else:
             self.column += 1
 
