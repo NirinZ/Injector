@@ -156,11 +156,11 @@ class Injector:
 
 
 if __name__ == "__main__":
-    num = 4
+    num = 7
     # image_name = input("Name of the image: ")
-    image_name = "sub.jpg"
+    image_name = "goku.png"
     print("The max is:", Injector.sizeof_fmt(Injector.calculate_space(image_name, num)))
     # Injector(image_name, input("Filename: "), num)
-    Injector(image_name, "crop.jpg", num)
+    Injector(image_name, "text.txt", num)
 
 # %%
