@@ -4,11 +4,10 @@ import math
 import time
 import os
 from PIL import Image
-from Injector import Injector
 from sys import byteorder
 
 # ניתן להעביר את כל הנתונים כאן למספרים במקום סטרינגים כדי להגדיל מהירות באופן דרמטי
-# לא כל המידע נכתב בקבצים!
+# שינוי מינימלי בביטים האחרונים של הקובץ
 
 class Extractor:
     bit_num = 2
@@ -56,11 +55,15 @@ class Extractor:
     def bitstring_to_bytes(s):
         return int(s, 2).to_bytes(len(s) // 8, byteorder = "big")#byteorder) # Will throw an error if s is not devidable by 8
 
+    @staticmethod
+    def full_byte(bina, bit_num=8):
+        return (bit_num - len(bina)) * "0" + bina
+
     def write_to_image(self):
         for i in range(self.img.size[1]):   #for each row
             for j in range(self.img.size[0]):  #for each column
                 for color in self.pixels[j,i]: # color RGB
-                    byte = Injector.full_byte(bin(color)[2:], self.bit_num)[-self.bit_num:]
+                    byte = self.full_byte(bin(color)[2:], self.bit_num)[-self.bit_num:]
                     # print(byte)
                     self.buffer += byte
                 # self.file.write(self.bitstring_to_bytes('0110100001101001'))
@@ -74,4 +77,4 @@ class Extractor:
             print(100 * self.current_pixel/ self.last_pixel,"%", end="            \r")
 
 if __name__ == "__main__":
-    Ext = Extractor("save.png", "result\\cp_res.exe", 8, 1055423)
+    Ext = Extractor("save.png", "result\\out_st.mp3", 7, 2073234)
