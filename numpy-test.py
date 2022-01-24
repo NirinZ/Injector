@@ -45,7 +45,8 @@ class Injector:
         self.img = np.array(Image.open(image_name))
         self.img.setflags(write=1)
 
-        self.file_size = os.path.getsize(image_name)
+        self.file_size = os.path.getsize(file_name)
+        print("File size: ", self.sizeof_fmt(self.file_size))
         pixels_num = self.img.shape[0] * self.img.shape[1]
         self.available_space = int(pixels_num * 3 * self.bit_num)
 
@@ -57,6 +58,7 @@ class Injector:
         end_time = time.time()
         total_time = end_time - start_time
         print()
+        print(self.column, self.row, self.px)
         print("Time: ", total_time)
         ima = Image.fromarray(self.img, 'RGB')
         ima.show()

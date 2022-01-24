@@ -1,4 +1,5 @@
 # %%
+from fileinput import FileInput
 import math
 import time
 import os
@@ -6,6 +7,14 @@ from PIL import Image
 from matplotlib.style import available
 
 '''
+def bi(a):
+	b=''
+	for i in a.encode():
+		t =Injector.full_byte(bin(i)[2:])
+		print(t)
+		b+=t
+	return b
+
 class Injector:
     def __init__(self):
         self.img = Image.open("sub.jpg")
@@ -56,25 +65,56 @@ class Injector:
         self.img = Image.open(image_name)
         self.pixels = self.img.load()
 
-        self.file_size = os.path.getsize(image_name)
+        self.file_size = os.path.getsize(file_name)
+        if(self.file_size > self.calculate_space(self.image_name, self.bit_num)):
+            raise OSError("The file is too big! pay attetion to the space limitation of the bit num.")
+
         pixels_num = self.img.size[0] * self.img.size[1]
         self.available_space = int(pixels_num * 3 * self.bit_num)
 
         # self.img.show()
-        self.write_string("This image hed injected!")  # verefication  //24 bytes
-        self.write_bin("00000000")  # version //1 byte
-        self.write_bin("10101010")  # start of file //1 byte
+        # self.write_string("This image hed injected!")  # verefication  //24 bytes
+        # self.write_bin("00000000")  # version //1 byte
+        # self.write_bin("10101010")  # start of file //1 byte
         self.read_from_file()
         end_time = time.time()
         total_time = end_time - start_time
         print()
+        print(self.column, "," ,self.row)
+        print("Pixel:", self.row * self.img.size[0] + self.column)
         print("Time: ", total_time)
+
+        #-- relyability test --
+        # img = Image.open("save.png")
+        # px = img.load()
+        # for i in range(img.size[1]):
+        #     for j in range(img.size[0]):
+        #         if(px[j,i] != Inj.pixels[j, i]):
+        #             print("Error!!!!")
+        #             break
+        # with open("or_tab.txt", 'w') as f:
+        #     for i in range(self.img.size[1]):   #for each row
+        #         for j in range(self.img.size[0]):  #for each column
+        #             f.writelines(str(self.pixels[j,i]) + '\n')
+
         self.img.show()
         self.img.save("save.png")
+        # os.system("notepad or_tab.txt")
 
     @staticmethod
-    def full_byte(bina):
-        return (8 - len(bina)) * "0" + bina
+    def full_byte(bina, bit_num=8):
+        return (bit_num - len(bina)) * "0" + bina
+
+    # [Injector.full_byte(bin(i)[2:]) for i in chr(int("01101000", 2)).encode()]
+    
+    @staticmethod
+    def bi(a):
+        b=''
+        br = bytearray()
+        for i in a.encode():
+            b += Injector.full_byte(bin(i)[2:])
+            br.append(i)
+        return b, br
 
     @staticmethod
     def calculate_space(image_name, bit_num):
@@ -84,7 +124,7 @@ class Injector:
 
     @staticmethod
     def sizeof_fmt(num, suffix="B"):
-        print(num)
+        print(f"{num:,}")
         for unit in ["", "K", "M", "G", "T", "P", "E", "Z"]:
             if abs(num) < 1024.0:
                 return f"{num:3.2f} {unit}{suffix}"
@@ -97,11 +137,12 @@ class Injector:
         new_pixel = []
         for i in current_pixel:  #\/ removing the least significant bit from original pixel
             new_pixel.append(int(bin(i)[2:][:-self.bit_num] + tempicx[:self.bit_num], 2))
-            # new_pixel.append(0)
+            # new_pixel.append(255)
             tempicx = tempicx[self.bit_num:]           # /\ adding the new pixel
 
         # print(new_pixel)
         self.pixels[self.column, self.row] = tuple(new_pixel)
+        self.file_size -= self.bit_num * 3 / 8
         if self.column == self.img.size[0] - 1:
             self.column = 0
             self.row += 1
@@ -132,7 +173,8 @@ class Injector:
                 self.make_subpixels(buffer[:index])
                 buffer = buffer[index:]
         if buffer != "":
-            self.make_subpixels(buffer + "0" * (self.bit_num - len(buffer)), True)
+            self.make_subpixels(buffer, True)
+            # self.make_subpixels(buffer + "0" * (self.bit_num - len(buffer)), True)
             buffer = ""
 
     def write_string(self, data):
@@ -143,7 +185,7 @@ class Injector:
                 self.make_subpixels(self.buffer[:index])
                 self.buffer = self.buffer[index:]
         if self.buffer != "":
-            self.make_subpixels(self.buffer + "0" * (self.bit_num - len(self.buffer)), True)
+            self.make_subpixels(self.buffer)
             self.buffer = ""
 
     def write_bin(self, data):
@@ -153,16 +195,16 @@ class Injector:
             self.make_subpixels(self.buffer[:index])
             self.buffer = self.buffer[index:]
         if self.buffer != "":
-            self.make_subpixels(self.buffer + "0" * (self.bit_num - len(self.buffer)), True)
+            self.make_subpixels(self.buffer)
             self.buffer = ""
 
 
 if __name__ == "__main__":
-    num = 7
+    num = 8
     # image_name = input("Name of the image: ")
     image_name = "goku.png"
     print("The max is:", Injector.sizeof_fmt(Injector.calculate_space(image_name, num)))
     # Injector(image_name, input("Filename: "), num)
-    Injector(image_name, "text.txt", num)
+    Inj = Injector(image_name, "cp.exe", num)
 
 # %%

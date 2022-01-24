@@ -1,8 +1,14 @@
+# %%
+
 import math
 import time
 import os
 from PIL import Image
 from Injector import Injector
+from sys import byteorder
+
+# ניתן להעביר את כל הנתונים כאן למספרים במקום סטרינגים כדי להגדיל מהירות באופן דרמטי
+# לא כל המידע נכתב בקבצים!
 
 class Extractor:
     bit_num = 2
@@ -15,8 +21,11 @@ class Extractor:
 
     image_name = ""
     file_name = ""
+    file_size = 0
+    current_pixel = 0
+    last_pixel = 0
 
-    def __init__(self, image_name, file_name, bit_num = 2):
+    def __init__(self, image_name, file_name, bit_num, last_pixel):
         self.image_name = image_name
         self.file_name = file_name
         self.bit_num = bit_num
@@ -26,31 +35,43 @@ class Extractor:
         self.img = Image.open(image_name)
         self.file = open(file_name, "wb")
         self.pixels = self.img.load() # creates the pixel map
+        self.last_pixel = last_pixel
         self.write_to_image()
         self.file.close()
-
-    @staticmethod
-    def bitstring_to_bytes(s):
-        v = int(s, 2)
-        b = bytearray()
-        while v:
-            b.append(v & 0xff)
-            v >>= 8
-        return bytes(b[::-1])
-
-    def write_to_image(self):
-        start_time = time.time()
-        for i in range(self.img.size[0]):   #for each row
-            for j in range(self.img.size[1]):  #for each column
-                for color in self.pixels[i,j]: # color RGB
-                    byte = Injector.full_byte(bin(color)[2:][-self.bit_num:])
-                    # print(byte)
-                    self.buffer += byte
-                self.file.write(self.bitstring_to_bytes(self.buffer))
-                self.buffer = "" # כנראה שנאבד כאן מידע שמחלקים ב8
         end_time = time.time()
         total_time = end_time - start_time
+        print()
         print("Time: ", total_time)
 
+    # @staticmethod
+    # def bitstring_to_bytes(s): #צריך ללמוד פעולות ביטים ולהבין איך זה עובד
+    #     v = int(s, 2)
+    #     b = bytearray()
+    #     while v:
+    #         b.append(v & 0xff)
+    #         v >>= 8
+    #     return bytes(b) # Im using litte so I dont need b[::-1] // from sys import byteorder \n print(byteorder)
+    
+    @staticmethod
+    def bitstring_to_bytes(s):
+        return int(s, 2).to_bytes(len(s) // 8, byteorder = "big")#byteorder) # Will throw an error if s is not devidable by 8
+
+    def write_to_image(self):
+        for i in range(self.img.size[1]):   #for each row
+            for j in range(self.img.size[0]):  #for each column
+                for color in self.pixels[j,i]: # color RGB
+                    byte = Injector.full_byte(bin(color)[2:], self.bit_num)[-self.bit_num:]
+                    # print(byte)
+                    self.buffer += byte
+                # self.file.write(self.bitstring_to_bytes('0110100001101001'))
+                if self.current_pixel >= self.last_pixel:
+                    self.file.write(self.bitstring_to_bytes(self.buffer[ :len(self.buffer) -(len(self.buffer)%8)]))
+                    return
+                self.current_pixel += 1
+            # print(self.buffer)
+            self.file.write(self.bitstring_to_bytes(self.buffer[ :len(self.buffer) -(len(self.buffer)%8)]))
+            self.buffer = self.buffer[len(self.buffer) -(len(self.buffer)%8):]
+            print(100 * self.current_pixel/ self.last_pixel,"%", end="            \r")
+
 if __name__ == "__main__":
-    Extractor("save.png", "te.txt", 7)
+    Ext = Extractor("save.png", "result\\cp_res.exe", 8, 1055423)
