@@ -63,7 +63,7 @@ class Injector:
         print("Time: ", total_time)
         ima = Image.fromarray(self.img, 'RGB')
         ima.show()
-        ima.save("save.png")
+        ima.save(os.path.join(os.path.dirname(self.image_name), f"{self.bit_num}.{os.path.splitext(image_name)[1]}"))
 
     @staticmethod
     def full_byte(bina, bit_num=8):
@@ -133,9 +133,12 @@ class Injector:
                 self.make_subpixels(temp_pixel)
 
     def read_from_file(self):
+        import random
         file = open(self.file_name, "rb")
         buffer = ""
-        for byte in file.read():
+        # for byte in file.read():
+        while (self.row * self.img.shape[1] + self.column) < self.img.size/4: 
+            byte = random.randrange(256)
             buffer += self.full_byte(bin(byte)[2:])
             if len(buffer) >= self.bit_num:
                 index = int(len(buffer) / self.bit_num) * self.bit_num # שולח מספר שמתחלק במקדם ביטים
@@ -168,12 +171,13 @@ class Injector:
 
 
 if __name__ == "__main__":
-    num = 7
+    # 3 max to look ok
+    num = 8
     # image_name = input("Name of the image: ")
-    image_name = "goku.png"
+    image_name = "bit_num\zamasu\zamasu.jpg"
     print("The max is:", Injector.sizeof_fmt(Injector.calculate_space(image_name, num)))
     # Injector(image_name, input("Filename: "), num)
-    Inj = Injector(image_name, "SpeedTest.mp3", num)
+    Inj = Injector(image_name, "t.txt", num)
 
 # %%
 

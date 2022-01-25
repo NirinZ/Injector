@@ -53,7 +53,7 @@ class Extractor:
     
     @staticmethod
     def bitstring_to_bytes(s):
-        return int(s, 2).to_bytes(len(s) // 8, byteorder = "big")#byteorder) # Will throw an error if s is not devidable by 8
+        return int(s, 2).to_bytes(len(s) // 8, byteorder = "big") #byteorder) # Will throw an error if s is not devidable by 8
 
     @staticmethod
     def full_byte(bina, bit_num=8):
@@ -77,4 +77,4 @@ class Extractor:
             print(100 * self.current_pixel/ self.last_pixel,"%", end="            \r")
 
 if __name__ == "__main__":
-    Ext = Extractor("save.png", "result\\out_st.mp3", 7, 2073234)
+    Ext = Extractor("save.png", "result\\out_cp.exe", 1, 556672)
