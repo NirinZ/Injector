@@ -135,13 +135,10 @@ class Injector:
                 temp_pixel += "0" * (self.bit_num * 3 - len( temp_pixel))
                 self.make_subpixels(temp_pixel)
 
-    def read_from_file(self):
-        import random
-        file = open(self.file_name, "rb")
-        buffer = ""
-        # for byte in file.read():
-        while (self.row * self.img.shape[1] + self.column) < self.img.size/4: 
-            byte = random.randrange(256)
+    def read_from_file(self):	
+        file = open(self.file_name, "rb")	
+        buffer = ""	
+        for byte in file.read():	
             buffer += self.full_byte(bin(byte)[2:])
             if len(buffer) >= self.bit_num:
                 index = int(len(buffer) / self.bit_num) * self.bit_num # שולח מספר שמתחלק במקדם ביטים
