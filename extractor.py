@@ -77,4 +77,10 @@ class Extractor:
             print(100 * self.current_pixel/ self.last_pixel,"%", end="            \r")
 
 if __name__ == "__main__":
-    Ext = Extractor("save.png", "result\\out_st.mp3", 7, 2073234)
+    num = int(input("Bit-num: "))
+    # num = 7
+    image_name = input("Name of the image: ")
+    # image_name = "goku.png"
+    pixel = int(input("Pixel: "))
+    
+    Ext = Extractor(image_name, "OutFile", num, pixel)
