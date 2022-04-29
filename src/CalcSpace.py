@@ -40,7 +40,10 @@ def print_all_bit_num(func, param):
 
 def is_xy(txt):
     txt = txt.replace(' ', '')
-    sp = txt.split(',')
+    if 'x' in txt.lower():
+        sp = txt.lower().split('x')
+    else:
+        sp = txt.split(',')
     if (len(sp) == 2 and sp[0].isnumeric() and sp[1].isnumeric()):
         return int(sp[0]) * int(sp[1])
     else:
@@ -58,6 +61,8 @@ if __name__ == "__main__":
             elif (os.path.exists(inp)):
                 print_all_bit_num(calculate_space_img, inp)
             # ------------------------------------------------------
+            elif (inp == 'ex'):
+                exit()
             else:
                 print("Illigal input!")
         except Exception as e:

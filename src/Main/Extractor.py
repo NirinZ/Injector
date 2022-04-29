@@ -30,8 +30,6 @@ class Extractor:
         self.bit_num = bit_num
         start_time = time.time()
         self.img = Image.open(image_name)
-        self.pixels = self.img.load()
-        self.img = Image.open(image_name)
         self.file = open(file_name, "wb")
         self.pixels = self.img.load() # creates the pixel map
         self.last_pixel = last_pixel
