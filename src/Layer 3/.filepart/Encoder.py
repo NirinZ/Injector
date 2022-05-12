@@ -3,6 +3,7 @@ import hashlib
 from sys import byteorder
 from math import log2
 from math import ceil
+import os
 from os import path
 from os.path import splitext
 from os.path import basename
@@ -47,6 +48,7 @@ Improvments:
 3: Data prepering 5-6
 '''
 
+filepart_signature = b'FILEPART\r\n\x1a\n'
 start_byte = b'\xaa'
 switch_byte = b'\x81'
 end_byte = b'\x55'
@@ -140,14 +142,32 @@ class Flags:
     def checksum_type(self, value) -> None:
         self.__checksum_type = Checksum(value)
 
-# ** Will move the pointer 12 bytes! **
+class Filepart:
+    
+    def __init__(self, filename):
+        file = open(filename, 'rb')
+        if not check_format(file):
+            raise Exception("The file format is not supported")
+        sorce_file = open(filename, 'rb')
+        sorce_file.seek(12, 1)
+        sorce_flags = Flags(sorce_file.read(1))
+        name_len = read_versatile_number(sorce_file)
+        sorce_name = sorce_file.read(name_len)
+        sorce_order = 0     
+
+# ** Will NOT move the pointer 12 bytes! **
 def check_format(file) -> bool:
-    return file.read(12) == b'FILEPART\r\n\x1a\n'
+    file.seek(0)
+    supported = file.read(12) == filepart_signature
+    file.seek(0)
+    return supported
 
 
 # ** Does format check **
 def get_data_size(file) -> int:
-    check_format(file)
+    if not check_format(file):
+        return 0
+    file.seek(12, 1)
     flags = Flags(file.read(1))
     name_len = read_versatile_number(file)
     file.seek(name_len, 1) # Moving the pointer
@@ -164,17 +184,40 @@ def get_data_size(file) -> int:
         return int(file.read(data_bytes)[::-1].hex(), 16) # Need to reverse the bytes for little endian byte order
     if file.read(1) != switch_byte: # Checking of the switch byte
         raise ValueError(f"Could not find switch byte! error in {file.tell() -1}")
-    return path.getsize(file.name) - file.tell()
+    data_size = path.getsize(file.name) - file.tell()
+    file.seek(0)
+    return data_size
 
 
 def split_filepart(file_name, size):
-    file = open(file_name, 'rb')
+    sorce_file = open(file_name, 'rb')
+    if not check_format(sorce_file):
+        raise Exception("The file format is not supported")
+    if size >= path.getsize(sorce_file.name):
+        new_name = os.path.join(dirname(sorce_file.name), splitext(basename(file_name))[0] + " - Last.filepart")
+        os.rename(sorce_file.name, new_name)
+        print("Done splitting the file")
+        return
+    sorce_file.seek(12, 1)
+    sorce_flags = Flags(sorce_file.read(1))
+    name_len = read_versatile_number(sorce_file)
+    sorce_name = sorce_file.read(name_len)
+    sorce_order = 0
+    if flags.order_version == Ordering.PART_NUM1:
+        sorce_order = read_versatile_number(sorce_file, 1)
+    elif flags.order_version == Ordering.PART_NUM3:
+        sorce_order = read_versatile_number(sorce_file, 3)
+    elif flags.order_version == Ordering.OFFSET5:
+        sorce_order = read_versatile_number(sorce_file, 5)
+
+def write_filepart_header(file, size):
+    pass
 
 def file_to_filepart(file_name: str, flags: Flags=Flags()):
     file = open(file_name, 'rb')
     size = path.getsize(file.name)
 
-    filepart = open("out.filepart", 'wb+')
+    filepart = open(f"{file_name}.filepart", 'wb+')
 
     # -- Signature -- (12B)
     filepart.write('FILEPART'.encode())         #                   (8B)
@@ -188,7 +231,7 @@ def file_to_filepart(file_name: str, flags: Flags=Flags()):
 
     # -- Name -- (+1B + name)
     # need to add content signature
-    name =  splitext(basename(file.name))[0]      # get file name
+    name =  basename(file.name)      # get file name
     filepart.write(num_to_versatile_bytes(len(name))) # write the len of the file name (+1B)
     filepart.write(name.encode())                 # write the file name
 
@@ -251,6 +294,9 @@ def file_to_filepart(file_name: str, flags: Flags=Flags()):
         print(100 * filepart.tell()/ size,"%", end="            \r")
     print()
 
+    # Taking a split from the file
+    split_filepart(file_name, size)
+
 def max_bytes_num(bytes_num:int=1) -> int:
     return 2**(8 * bytes_num) - 1
 
@@ -296,7 +342,7 @@ def to_fi(file_name:str, size:int, flags: Flags=Flags()) -> None:
         input()
         exit()
     if exists(path.join(dirname(file_name), splitext(basename(file_name))[0] + ".filepart")): # The file already been trimed
-        print("Found existing file: " + path.join(dirname(file_name)), splitext(basename(file_name)[0] + ".filepart"))
+        print("Found existing file: " + path.join(dirname(file_name)), splitext(basename(file_name))[0] + ".filepart")
         split_filepart(file_name, size)
     else:
         print("Could not find a file, creating a new one", path.join(dirname(file_name)), splitext(basename(file_name)[0] + ".filepart"))
