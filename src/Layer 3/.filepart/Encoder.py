@@ -91,12 +91,11 @@ class Flags:
         if flags_byte is None:
             return
         flags = ord(flags_byte)
-
-        __order_version = Ordering(flags >> 6)
-        __storing_size =  bool(flags & 32)
-        __is_last = bool(flags & 16)
-        __num_rapping = NumRapping((flags & 12) >> 2)
-        __checksum_type = Checksum(flags % 4)
+        self.__order_version = Ordering(flags >> 6)
+        self.__storing_size =  bool(flags & 32)
+        self.__is_last = bool(flags & 16)
+        self.__num_rapping = NumRapping((flags & 12) >> 2)
+        self.__checksum_type = Checksum(flags % 4)
 
     def get_flags_number(self) -> int:
         return int(\
@@ -377,9 +376,8 @@ def print_bytes_max():
     for i in range(1, 16):
 	    print(i, ':', f'{2**(8*i):,}', " ==> ", sizeof_fmt(2**(8*i)))
 
-#save 2
-if __name__ == "__main__":
-    ## Code isn't working need fix!
+#save 3
+if __name__ == "__main__": ## working on the filepart class
     print(os.getcwd())
     file_name = input("File name: ")
     Filepart(file_name)
