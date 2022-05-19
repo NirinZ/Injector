@@ -178,7 +178,7 @@ class Filepart():
         if file.read(1) != switch_byte: # Checking of the switch byte
             print(file.tell())
             raise ValueError(f"Could not find switch byte! error in {file.tell() -1}")
-        # now the pointer points to the data
+        # Now the pointer points to the data
 
     def __init__(self, sorce_file, size:int):
         if sorce_file.__class__ != Filepart:
@@ -186,6 +186,9 @@ class Filepart():
         if size >= path.getsize(sorce_file.name):
             self = sorce_file
             return
+        self.file = open('splited.filepart', 'wb+')
+        name = self.file.name
+        self.file.write(Filepart.filepart_signature)
         avaliable_size = size - (len(Filepart.filepart_signature) + 2) # for the flags and switch byte
         self.flags = sorce_file.flags
         self.group = sorce_file.group
@@ -195,25 +198,36 @@ class Filepart():
         if flags.checksum_type == Checksum.CHECKSUM4:
             avaliable_size -= 4
 
-
         order = 0
         if flags.order_version == Ordering.PART_NUM1:
             order = sorce_file.order + 1
             avaliable_size -= len_of_bytes_num(order)
-
         elif flags.order_version == Ordering.PART_NUM3:
             order = sorce_file.order + 1
             avaliable_size -= len_of_bytes_num(order, 3)
-
         elif flags.order_version == Ordering.OFFSET5:
-            avaliable_size -= len_of_bytes_num(avaliable_size, 5)
-            order = avaliable_size
-        
+            avaliable_size -= len_of_bytes_num(avaliable_size, 5)        
         elif flags.order_version == Ordering.OFFSET6:
             avaliable_size -= len_of_bytes_num(avaliable_size, 6)
+
+        if flags.storing_size:
+            avaliable_size -= ceil(log2(size) /8)
+
+        if flags.order_version == Ordering.OFFSET5 or flags.order_version == Ordering.OFFSET6:
             order = avaliable_size
 
+    #         print()
+    # data = file.read(2**10) # Reading 1KB
+    # while data != b'': # While data is not empty
+    #     filepart.write(data)
+    #     data = file.read(2**10)
+    #     print(100 * filepart.tell()/ size,"%", end="            \r")
+    # print()
+        # Now all the header is calculated
 
+    def write_filepart(self):
+        #### HERE <==
+        pass
 
     def get_header_size(self):
         pass
@@ -349,7 +363,9 @@ def file_to_filepart(file_name: str, flags: Flags=Flags()):
     # -- Storing size --
     # log2(file_len) /8
     if flags.storing_size:
-        filepart.write(size.to_bytes(ceil(log2(size) /8), byteorder)) # needs FIX
+        filepart.write(size.to_bytes(ceil(log2(size) /8), byteorder)) # The amount of bytes associated to the size
+                                                                      # are based on the entire file size and not 
+                                                                      # just the size of the data
 
     # -- Switch byte --
     filepart.write(switch_byte)
@@ -430,7 +446,7 @@ def print_bytes_max():
     for i in range(1, 16):
 	    print(i, ':', f'{2**(8*i):,}', " ==> ", sizeof_fmt(2**(8*i)))
 
-#save 4
+#save 5
 if __name__ == "__main__": ## working on the filepart class
     print(os.getcwd())
     file_name = input("File name: ")
