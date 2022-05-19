@@ -143,6 +143,12 @@ class Flags:
 
 class Filepart():
     
+    filepart_signature = b'FILEPART\r\n\x1a\n'
+
+    def __init__(self, flags: Flags=Flags(), group: str = "none group"):
+        self.flags = flags
+        self.group = group
+
     def __init__(self, filename):
         file = open(filename, 'rb')
         name = file.name
@@ -162,6 +168,8 @@ class Filepart():
         if flags.checksum_type == Checksum.CHECKSUM4:
             checksum_bytes = file.read(4)
             checksum = read_checksum(checksum_bytes)
+        else:
+            checksum = None
         if flags.storing_size:
             data_bytes = ceil(log2(path.getsize(file.name) -(file.tell() + 1))/8)
             data_size = int(file.read(data_bytes)[::-1].hex(), 16)
@@ -171,8 +179,49 @@ class Filepart():
             print(file.tell())
             raise ValueError(f"Could not find switch byte! error in {file.tell() -1}")
         # now the pointer points to the data
-            
 
+    def __init__(self, sorce_file, size:int):
+        if sorce_file.__class__ != Filepart:
+            raise ValueError(f"sorce file should be a Filepart")
+        if size >= path.getsize(sorce_file.name):
+            self = sorce_file
+            return
+        avaliable_size = size - (len(Filepart.filepart_signature) + 2) # for the flags and switch byte
+        self.flags = sorce_file.flags
+        self.group = sorce_file.group
+        avaliable_size -= len_of_bytes_num(len(self.group.encode())) # for the group len byte
+        avaliable_size -= len(self.group.encode())  # for the group bytes
+        
+        if flags.checksum_type == Checksum.CHECKSUM4:
+            avaliable_size -= 4
+
+
+        order = 0
+        if flags.order_version == Ordering.PART_NUM1:
+            order = sorce_file.order + 1
+            avaliable_size -= len_of_bytes_num(order)
+
+        elif flags.order_version == Ordering.PART_NUM3:
+            order = sorce_file.order + 1
+            avaliable_size -= len_of_bytes_num(order, 3)
+
+        elif flags.order_version == Ordering.OFFSET5:
+            avaliable_size -= len_of_bytes_num(avaliable_size, 5)
+            order = avaliable_size
+        
+        elif flags.order_version == Ordering.OFFSET6:
+            avaliable_size -= len_of_bytes_num(avaliable_size, 6)
+            order = avaliable_size
+
+
+
+    def get_header_size(self):
+        pass
+
+
+# How many bytes will it takes to store this number by the given bytes_num
+def len_of_bytes_num(num:int, bytes_num:int=1) -> int:
+    return len(num_to_versatile_bytes(num, bytes_num))
 
 def read_checksum(checksum_bytes:bytes) -> str:
     checksum = ""
@@ -217,13 +266,17 @@ def get_data_size(file) -> int:
 
 
 def split_filepart(file_name, size):
-    sorce_file = Filepart(file_name, 'rb')
-    
+    sorce_file = Filepart(file_name)
+
     if size >= path.getsize(sorce_file.name):
         new_name = os.path.join(dirname(sorce_file.name), splitext(basename(file_name))[0] + " - Last.filepart")
         os.rename(sorce_file.name, new_name)
         print("Done splitting the file")
         return
+    
+    else:
+        new_file = Filepart(sorce_file.flags, sorce_file.group, checksum=sorce_file.checksum)
+
 
 def write_filepart_header(file, size):
     pass
@@ -247,8 +300,9 @@ def file_to_filepart(file_name: str, flags: Flags=Flags()):
     # -- Name -- (+1B + name)
     # need to add content signature
     name =  basename(file.name)      # get file name
-    filepart.write(num_to_versatile_bytes(len(name))) # write the len of the file name (+1B)
-    filepart.write(name.encode())                 # write the file name
+    filepart.write(num_to_versatile_bytes(len(name.encode()))) # write the len of the file name (+1B)
+                                                               # encoding for multibyte characters
+    filepart.write(name.encode())                              # write the file name
 
 
     # -- Ordering -- (+1B - +6B)
@@ -376,7 +430,7 @@ def print_bytes_max():
     for i in range(1, 16):
 	    print(i, ':', f'{2**(8*i):,}', " ==> ", sizeof_fmt(2**(8*i)))
 
-#save 3
+#save 4
 if __name__ == "__main__": ## working on the filepart class
     print(os.getcwd())
     file_name = input("File name: ")
