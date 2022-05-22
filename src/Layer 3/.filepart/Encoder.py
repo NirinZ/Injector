@@ -184,6 +184,36 @@ class FilepartHeader:
         self.data_size = data_size
         self.header_length = header_length
 
+    def write_header(self, file_name = "unnamed") -> io.BufferedWriter:
+        file = open(file_name, 'wb') # Need fix to name
+        file.write(FilepartHeader.filepart_signature) # Signature
+        file.write(self.flags.to_byte()) # Flags
+
+        # Name
+        file.write(num_to_versatile_bytes(len(self.group.encode())))
+        file.write(self.group.encode())
+        
+        # Ordering
+        if self.flags.order_version == Ordering.PART_NUM1:
+            file.write(num_to_versatile_bytes(self.order))
+        elif self.flags.order_version == Ordering.PART_NUM3:
+            file.write(num_to_versatile_bytes(self.order, 3))
+        elif self.flags.order_version == Ordering.OFFSET5:
+            file.write(num_to_versatile_bytes(self.order, 5))
+
+        # Checksum
+        if self.flags.checksum_type == Checksum.CHECKSUM4:
+            checksum = get_file_checksum(data, data.tell())[:8]
+            file.write(checksum_to_bytes(checksum))
+
+        # Storing size
+        if self.flags.storing_size:
+            file.write(
+                self.data_size.to_bytes(ceil(log2(self.data_size + self.header_length) / 8), byteorder))
+        
+        # -- Switch byte --
+        file.write(switch_byte)
+
 class Filepart(FilepartHeader):
 
     def __init__(self, file: io.BufferedReader, flags: Flags = Flags(), group: str = "none group",
@@ -318,22 +348,30 @@ class Filepart(FilepartHeader):
         if flags.checksum_type == Checksum.CHECKSUM4:
             avaliable_size -= 4
 
-        order = 0
-        if flags.order_version == Ordering.PART_NUM1:
-            order = sorce_file.order + 1
-            avaliable_size -= len_of_bytes_num(order)
-        elif flags.order_version == Ordering.PART_NUM3:
-            order = sorce_file.order + 1
-            avaliable_size -= len_of_bytes_num(order, 3)
-        elif flags.order_version == Ordering.OFFSET5:
-            order = sorce_file.order + sorce_file.data_size
-            avaliable_size -= len_of_bytes_num(order, 5)
-        elif flags.order_version == Ordering.OFFSET6:
-            order = sorce_file.order + sorce_file.data_size
-            avaliable_size -= len_of_bytes_num(order, 6)
-        
         if flags.storing_size:
             avaliable_size -= ceil(log2(size) / 8)
+            # We are cheking the data_storing here so we culd calculate the order for the sorce file
+            
+        order = 0
+        if flags.order_version == Ordering.PART_NUM1:
+            order = sorce_file.order
+            avaliable_size -= len_of_bytes_num(order)
+            sorce_file.order = order + 1
+        elif flags.order_version == Ordering.PART_NUM3:
+            order = sorce_file.order
+            avaliable_size -= len_of_bytes_num(order, 3)
+            sorce_file.order = order + 1
+
+        elif flags.order_version == Ordering.OFFSET5:
+            order = sorce_file.order
+            avaliable_size -= len_of_bytes_num(order, 5)
+            sorce_file.order = order + avaliable_size
+        elif flags.order_version == Ordering.OFFSET6:
+            order = sorce_file.order
+            avaliable_size -= len_of_bytes_num(order, 6)
+            sorce_file.order = order + avaliable_size
+
+        
 
         if avaliable_size < 1:
             raise ValueError("There isn't enough space to store the data, choose bigger size.")
@@ -345,6 +383,37 @@ class Filepart(FilepartHeader):
         header = FilepartHeader(flags, group, order, avaliable_size, header_length)
         
         return Filepart.write_filepart(header, sorce_file)
+
+    
+    # def write_header(, file_name = "unnamed") -> io.BufferedWriter:
+    #     file = open(file_name, 'wb') # Need fix to name
+    #     file.write(FilepartHeader.filepart_signature) # Signature
+    #     file.write(header.flags.to_byte()) # Flags
+
+    #     # Name
+    #     file.write(num_to_versatile_bytes(len(header.group.encode())))
+    #     file.write(header.group.encode())
+        
+    #     # Ordering
+    #     if header.flags.order_version == Ordering.PART_NUM1:
+    #         file.write(num_to_versatile_bytes(header.order))
+    #     elif header.flags.order_version == Ordering.PART_NUM3:
+    #         file.write(num_to_versatile_bytes(header.order, 3))
+    #     elif header.flags.order_version == Ordering.OFFSET5:
+    #         file.write(num_to_versatile_bytes(header.order, 5))
+
+    #     # Checksum
+    #     if header.flags.checksum_type == Checksum.CHECKSUM4:
+    #         checksum = get_file_checksum(data, data.tell())[:8]
+    #         file.write(checksum_to_bytes(checksum))
+
+    #     # Storing size
+    #     if header.flags.storing_size:
+    #         file.write(
+    #             header.data_size.to_bytes(ceil(log2(header.data_size + header.header_length) / 8), byteorder))
+        
+    #     # -- Switch byte --
+    #     file.write(switch_byte)
 
     @classmethod
     def write_filepart(cls, header: FilepartHeader, data: io.BufferedReader):
@@ -382,7 +451,7 @@ class Filepart(FilepartHeader):
         print()
         remaning_data = header.data_size
         data_part = 0
-        while remaning_data > 0 and data != b'':
+        while remaning_data > 0 and data_part != b'':
             if remaning_data < 2**10: # 1KB
                 data_part = data.read(remaning_data)
                 file.write(data_part)
@@ -392,9 +461,20 @@ class Filepart(FilepartHeader):
                 print(100 * file.tell() / header.data_size, "%", end="            \r")
         print()
 
+        if data_part == b'': # Last file
+            file.header.is_last = True
+            data.close()
+            os.remove(data.name)
+        else:
+            data.remove_redundent()
+
         file.seek(header.header_length)
 
         return cls(file, header.flags, header.group, header.order, checksum, header.data_size, header.header_length)
+
+
+    def remove_redundent(self) -> None:
+        new_file = open('temp', 'wb')
 
 
     # def __init__(self, filename):
