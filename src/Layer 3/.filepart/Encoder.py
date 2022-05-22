@@ -214,15 +214,22 @@ class FilepartHeader:
         # -- Switch byte --
         file.write(switch_byte)
 
-class Filepart(FilepartHeader):
+class Filepart():
 
-    def __init__(self, file: io.BufferedReader, flags: Flags = Flags(), group: str = "none group",
-                 order: int = 0, checksum=None, data_size: int = 0, header_length: int = 0):
-        FilepartHeader.__init__(self, flags, group, order, checksum, data_size, header_length)
-        # File pointer should point to the data
+    filepart_signature = b'FILEPART\r\n\x1a\n'
+
+    def __init__(self, file: io.BufferedRandom, flags: Flags = Flags(), group: str = "none group",
+                 order: int = 0, data_size: int = 0, header_length: int = 0, checksum=None):
+        #FilepartHeader.__init__(self, flags, group, order, checksum, data_size, header_length)
         self.file = file
         self.name = file.name
+        self.flags = flags
+        self.group = group
+        self.order = order
+        self.data_size = data_size
+        self.header_length = header_length
         self.checksum = checksum
+        # File pointer should point to the data
 
     # Does not close the file!
     @classmethod
@@ -379,11 +386,41 @@ class Filepart(FilepartHeader):
         header_length = size - avaliable_size
 
         # Now all the header is calculated
+        file = open(os.path.dirname(sorce_file.name) + f"\{order}.filepart", 'wb')
+        filepart = Filepart(file, flags, group, order, avaliable_size, header_length)
+        filepart.write_header()
+        filepart.write_data_from_filepart(sorce_file)
 
-        header = FilepartHeader(flags, group, order, avaliable_size, header_length)
+        return filepart
+
+    def write_header(self) -> None:
+        self.file.seek(0)
+        self.file.write(Filepart.filepart_signature) # Signature
+        self.file.write(self.flags.to_byte()) # Flags
+
+        # Name
+        self.file.write(num_to_versatile_bytes(len(self.group.encode())))
+        self.file.write(self.group.encode())
         
-        return Filepart.write_filepart(header, sorce_file)
+        # Ordering
+        if self.flags.order_version == Ordering.PART_NUM1:
+            self.file.write(num_to_versatile_bytes(self.order))
+        elif self.flags.order_version == Ordering.PART_NUM3:
+            self.file.write(num_to_versatile_bytes(self.order, 3))
+        elif self.flags.order_version == Ordering.OFFSET5:
+            self.file.write(num_to_versatile_bytes(self.order, 5))
 
+        # Checksum
+        if self.flags.checksum_type == Checksum.CHECKSUM4:
+            self.file.write(b'\x00' * 4)
+
+        # Storing size
+        if self.flags.storing_size:
+            self.file.write(
+                self.data_size.to_bytes(ceil(log2(self.data_size + self.header_length) / 8), byteorder))
+        
+        # -- Switch byte --
+        self.file.write(switch_byte)
     
     # def write_header(, file_name = "unnamed") -> io.BufferedWriter:
     #     file = open(file_name, 'wb') # Need fix to name
@@ -415,66 +452,84 @@ class Filepart(FilepartHeader):
     #     # -- Switch byte --
     #     file.write(switch_byte)
 
-    @classmethod
-    def write_filepart(cls, header: FilepartHeader, data: io.BufferedReader):
-        file = open('splited.filepart', 'wb') # Need fix to name
-        file.write(FilepartHeader.filepart_signature) # Signature
-        file.write(header.flags.to_byte()) # Flags
+    def rewrite_flags(self):
+        pass ### HERE <==
 
+    def rewrite_checksum(self):
+        self.file.seek(13) # Signature + Flags
+        
         # Name
-        file.write(num_to_versatile_bytes(len(header.group.encode())))
-        file.write(header.group.encode())
+        name_len = read_versatile_number(self.file)
+        self.file.seek(name_len, 1)  # Moving the pointer
         
         # Ordering
-        if header.flags.order_version == Ordering.PART_NUM1:
-            file.write(num_to_versatile_bytes(header.order))
-        elif header.flags.order_version == Ordering.PART_NUM3:
-            file.write(num_to_versatile_bytes(header.order, 3))
-        elif header.flags.order_version == Ordering.OFFSET5:
-            file.write(num_to_versatile_bytes(header.order, 5))
+        if self.flags.order_version == Ordering.PART_NUM1:
+            read_versatile_number(self.file, 1)
+        elif self.flags.order_version == Ordering.PART_NUM3:
+            read_versatile_number(self.file, 3)
+        elif self.flags.order_version == Ordering.OFFSET5:
+            read_versatile_number(self.file, 5)
+        elif self.flags.order_version == Ordering.OFFSET5:
+            read_versatile_number(self.file, 6)
+
+        if self.flags.checksum_type == Checksum.CHECKSUM4:
+            checksum = get_file_checksum(self.file)[:8] # Need fix
 
         # Checksum
         if header.flags.checksum_type == Checksum.CHECKSUM4:
-            checksum = get_file_checksum(data, data.tell())[:8]
-            file.write(checksum_to_bytes(checksum))
+            #checksum = get_file_checksum(data, data.tell())[:8]
+            #file.write(checksum_to_bytes(checksum))
+            pass
 
-        # Storing size
-        if header.flags.storing_size:
-            file.write(
-                header.data_size.to_bytes(ceil(log2(header.data_size + header.header_length) / 8), byteorder))
-        
-        # -- Switch byte --
-        file.write(switch_byte)
-
-
-        # -- Data --
+    def write_data_from_filepart(self, sorce_file):
+        # if self.flags.checksum != Checksum.NO_CHECKSUM:
+        #     self.rewrite_checksum(data)
+            
+        # Pointer should point to the data as always
         print()
-        remaning_data = header.data_size
+        remaning_data = self.data_size
         data_part = 0
         while remaning_data > 0 and data_part != b'':
             if remaning_data < 2**10: # 1KB
-                data_part = data.read(remaning_data)
-                file.write(data_part)
+                data_part = sorce_file.file.read(remaning_data)
+                self.file.write(data_part)
             else:    
-                data_part = data.read(2 ** 10)  # Reading 1KB
-                file.write(data_part)
-                print(100 * file.tell() / header.data_size, "%", end="            \r")
+                data_part = sorce_file.file.read(2 ** 10)  # Reading 1KB
+                self.file.write(data_part)
+                print(100 * self.file.tell() / self.data_size, "%", end="            \r")
         print()
 
         if data_part == b'': # Last file
-            file.header.is_last = True
-            data.close()
-            os.remove(data.name)
+            self.file.header.is_last = True
+            sorce_file.file.close()
+            os.remove(sorce_file.name)
+            self.rewrite_flags()
         else:
-            data.remove_redundent()
+            sorce_file.remove_redundent()
 
-        file.seek(header.header_length)
+        self.file.seek(self.header_length)
 
-        return cls(file, header.flags, header.group, header.order, checksum, header.data_size, header.header_length)
+        if self.flags.checksum_type != Checksum.NO_CHECKSUM:
+            self.rewrite_checksum()
 
+    def write_data(self, data: io.BufferedReader):
+        print("Start triming the original file")
+        data_part = data.read(2 ** 10)  # Reading 1KB
+        while data_part != b'':  # While data is not empty
+            self.file.write(data_part)
+            data_part = data.read(2 ** 10)
+            print(100 * self.file.tell() / self.data_size, "%", end="            \r")
+        print()
 
     def remove_redundent(self) -> None:
-        new_file = open('temp', 'wb')
+        prev_file = self.file
+        self.file = open('temp', 'wb')
+        self.write_header()
+        self.write_data(prev_file)
+        prev_file.close()
+        os.remove(prev_file.name, 'tmp')
+        os.rename('temp', prev_file.name)
+        print("Done removing redundant")
 
 
     # def __init__(self, filename):
@@ -820,7 +875,7 @@ def print_bytes_max():
         print(i, ':', f'{2 ** (8 * i):,}', " ==> ", sizeof_fmt(2 ** (8 * i)))
 
 
-# save 7
+# save 8
 if __name__ == "__main__":
     # print(os.getcwd())
     # file_name = input("File name: ")
