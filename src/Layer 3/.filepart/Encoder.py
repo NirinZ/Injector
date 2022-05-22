@@ -177,11 +177,10 @@ class FilepartHeader:
     filepart_signature = b'FILEPART\r\n\x1a\n'
 
     def __init__(self, flags: Flags = Flags(), group: str = "none group",
-                 order: int = 0, checksum=None, data_size: int = 0, header_length: int = 0):
+                 order: int = 0, data_size: int = 0, header_length: int = 0):
         self.flags = flags
         self.group = group
         self.order = order
-        self.checksum = checksum
         self.data_size = data_size
         self.header_length = header_length
 
@@ -193,6 +192,7 @@ class Filepart(FilepartHeader):
         # File pointer should point to the data
         self.file = file
         self.name = file.name
+        self.checksum = checksum
 
     # Does not close the file!
     @classmethod
@@ -241,7 +241,7 @@ class Filepart(FilepartHeader):
     def create(cls, file: io.BufferedReader, flags: Flags = Flags()):
         data_size = path.getsize(file.name)
 
-        filepart = open(f"{file_name}.filepart", 'wb+')
+        filepart = open(f"{file.name}.filepart", 'wb+')
 
         # -- Signature -- (12B)
         filepart.write(filepart_signature)  # (12B)
@@ -269,14 +269,18 @@ class Filepart(FilepartHeader):
         # -- Checksum --
         checksum = None
         if flags.checksum_type == Checksum.CHECKSUM4:
-            checksum = get_file_checksum(file)[:8]
+            checksum = get_file_checksum(file)[:8] # We are using 8 charecters (4B) checksum
             filepart.write(checksum_to_bytes(checksum))
 
         # -- Storing size --
         # log2(file_len) /8
         if flags.storing_size:
+            total_size = data_size + filepart.tell()
+            needed_bytes = ceil(log2(total_size) / 8)
+            # Because the gape can be maximum 1 byte I need to do just one check
             filepart.write(
-                data_size.to_bytes(ceil(log2(data_size) / 8), byteorder))  # The amount of bytes associated to the size
+                data_size.to_bytes(ceil(log2(total_size + needed_bytes) / 8), byteorder))  
+            # The amount of bytes associated to the size
             # are based on the entire file size and not
             # just the size of the data
 
@@ -284,7 +288,7 @@ class Filepart(FilepartHeader):
         filepart.write(switch_byte)
 
         # -- Header length --
-        header_length = file.tell()
+        header_length = filepart.tell()
 
         # -- Data --
         print()
@@ -322,41 +326,76 @@ class Filepart(FilepartHeader):
             order = sorce_file.order + 1
             avaliable_size -= len_of_bytes_num(order, 3)
         elif flags.order_version == Ordering.OFFSET5:
-            avaliable_size -= len_of_bytes_num(avaliable_size, 5)
+            order = sorce_file.order + sorce_file.data_size
+            avaliable_size -= len_of_bytes_num(order, 5)
         elif flags.order_version == Ordering.OFFSET6:
-            avaliable_size -= len_of_bytes_num(avaliable_size, 6)
+            order = sorce_file.order + sorce_file.data_size
+            avaliable_size -= len_of_bytes_num(order, 6)
         
         if flags.storing_size:
             avaliable_size -= ceil(log2(size) / 8)
 
-        if flags.order_version == Ordering.OFFSET5 or flags.order_version == Ordering.OFFSET6:
-            order = avaliable_size
+        if avaliable_size < 1:
+            raise ValueError("There isn't enough space to store the data, choose bigger size.")
 
         header_length = size - avaliable_size
 
         # Now all the header is calculated
 
-        header = FilepartHeader(flags, group, order, sorce_file.checksum, avaliable_size, header_length)
+        header = FilepartHeader(flags, group, order, avaliable_size, header_length)
         
-        #header.write(data)
-        
-        return cls()
+        return Filepart.write_filepart(header, sorce_file)
 
     @classmethod
     def write_filepart(cls, header: FilepartHeader, data: io.BufferedReader):
         file = open('splited.filepart', 'wb') # Need fix to name
         file.write(FilepartHeader.filepart_signature) # Signature
         file.write(header.flags.to_byte()) # Flags
+
         # Name
         file.write(num_to_versatile_bytes(len(header.group.encode())))
         file.write(header.group.encode())
+        
         # Ordering
-        if flags.order_version == Ordering.PART_NUM1: ### HERE <==
-            file.write()
-        elif flags.order_version == Ordering.PART_NUM3:
-            file.write()
-        elif flags.order_version == Ordering.OFFSET5:
-            file.write()
+        if header.flags.order_version == Ordering.PART_NUM1:
+            file.write(num_to_versatile_bytes(header.order))
+        elif header.flags.order_version == Ordering.PART_NUM3:
+            file.write(num_to_versatile_bytes(header.order, 3))
+        elif header.flags.order_version == Ordering.OFFSET5:
+            file.write(num_to_versatile_bytes(header.order, 5))
+
+        # Checksum
+        if header.flags.checksum_type == Checksum.CHECKSUM4:
+            checksum = get_file_checksum(data, data.tell())[:8]
+            file.write(checksum_to_bytes(checksum))
+
+        # Storing size
+        if header.flags.storing_size:
+            file.write(
+                header.data_size.to_bytes(ceil(log2(header.data_size + header.header_length) / 8), byteorder))
+        
+        # -- Switch byte --
+        file.write(switch_byte)
+
+
+        # -- Data --
+        print()
+        remaning_data = header.data_size
+        data_part = 0
+        while remaning_data > 0 and data != b'':
+            if remaning_data < 2**10: # 1KB
+                data_part = data.read(remaning_data)
+                file.write(data_part)
+            else:    
+                data_part = data.read(2 ** 10)  # Reading 1KB
+                file.write(data_part)
+                print(100 * file.tell() / header.data_size, "%", end="            \r")
+        print()
+
+        file.seek(header.header_length)
+
+        return cls(file, header.flags, header.group, header.order, checksum, header.data_size, header.header_length)
+
 
     # def __init__(self, filename):
     #     file = open(filename, 'rb')
@@ -430,17 +469,17 @@ class Filepart(FilepartHeader):
 
     #     # Now all the header is calculated
 
-    def write_filepart(self, from_file):
-        print()
-        from_file.read(self.avaliable_size)
+    # def write_filepart(self, from_file):
+    #     print()
+    #     from_file.read(self.avaliable_size)
 
-        data = self.file.read(2 ** 10)  # Reading 1KB
-        while data != b'':  # While data is not empty
-            filepart.write(data)
-            data = file.read(2 ** 10)
-            print(100 * filepart.tell() / size, "%", end="            \r")
-        print()
-        pass
+    #     data = self.file.read(2 ** 10)  # Reading 1KB
+    #     while data != b'':  # While data is not empty
+    #         filepart.write(data)
+    #         data = file.read(2 ** 10)
+    #         print(100 * filepart.tell() / size, "%", end="            \r")
+    #     print()
+    #     pass
 
     def get_header_size(self):
         pass
@@ -603,7 +642,12 @@ def file_to_filepart(file_name: str, flags: Flags = Flags()):
     # -- Storing size --
     # log2(file_len) /8
     if flags.storing_size:
-        filepart.write(size.to_bytes(ceil(log2(size) / 8), byteorder))  # The amount of bytes associated to the size
+        total_size = size + filepart.tell()
+        needed_bytes = ceil(log2(total_size) / 8)
+        # Because the gape can be maximum 1 byte I need to do just one check
+        filepart.write(
+            size.to_bytes(ceil(log2(total_size + needed_bytes) / 8), byteorder))  
+        # The amount of bytes associated to the size
         # are based on the entire file size and not
         # just the size of the data
 
@@ -696,18 +740,17 @@ def print_bytes_max():
         print(i, ':', f'{2 ** (8 * i):,}', " ==> ", sizeof_fmt(2 ** (8 * i)))
 
 
-# save 6
+# save 7
 if __name__ == "__main__":
-    print(os.getcwd())
-    file_name = input("File name: ")
-    # Filepart(file_name)
-    size = input("Size: ")
-    flags = Flags()
-    flags.order_version = Ordering.PART_NUM1
-    flags.storing_size = False  # Recommended to be false
-    flags.num_rapping = NumRapping.ADDING
-    flags.checksum_type = Checksum.NO_CHECKSUM
-    fp = Filepart.auto_open(file_name, flags)
-    to_fi(file_name, size, flags)
-
-# %%
+    # print(os.getcwd())
+    # file_name = input("File name: ")
+    # # Filepart(file_name)
+    # size = input("Size: ")
+    # flags = Flags()
+    # flags.order_version = Ordering.PART_NUM1
+    # flags.storing_size = False  # Recommended to be false
+    # flags.num_rapping = NumRapping.ADDING
+    # flags.checksum_type = Checksum.NO_CHECKSUM
+    # fp = Filepart.auto_open(file_name, flags)
+    # to_fi(file_name, size, flags)
+    pass
