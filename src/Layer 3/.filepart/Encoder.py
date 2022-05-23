@@ -216,6 +216,13 @@ class FilepartHeader:
 
 class Filepart():
 
+    '''
+    FILEPART  # (8B)
+    \r\n      # (2B)    0D 0A
+    \x1a      # To stop `type`    (1B)    1A
+    \n        # To stop `cat`     (1B)    0A
+    '''
+
     filepart_signature = b'FILEPART\r\n\x1a\n'
 
     def __init__(self, file: io.BufferedRandom, flags: Flags = Flags(), group: str = "none group",
@@ -453,7 +460,9 @@ class Filepart():
     #     file.write(switch_byte)
 
     def rewrite_flags(self):
-        pass ### HERE <==
+        self.file.seek(12)
+        self.file.write(self.flags.to_byte())
+        self.file.seek(self.header_length)
 
     def rewrite_checksum(self):
         self.file.seek(13) # Signature + Flags
@@ -472,14 +481,15 @@ class Filepart():
         elif self.flags.order_version == Ordering.OFFSET5:
             read_versatile_number(self.file, 6)
 
-        if self.flags.checksum_type == Checksum.CHECKSUM4:
-            checksum = get_file_checksum(self.file)[:8] # Need fix
-
         # Checksum
-        if header.flags.checksum_type == Checksum.CHECKSUM4:
-            #checksum = get_file_checksum(data, data.tell())[:8]
-            #file.write(checksum_to_bytes(checksum))
-            pass
+        if self.flags.checksum_type == Checksum.CHECKSUM4:
+            checksum_start = self.file.tell()
+            self.file.seek(self.header_length)
+            checksum = get_file_checksum(self.file, self.header_length)[:8] # Need fix
+            self.file.seek(checksum_start)
+            self.file.write(checksum_to_bytes(checksum))
+        
+        self.file.seek(self.header_length)
 
     def write_data_from_filepart(self, sorce_file):
         # if self.flags.checksum != Checksum.NO_CHECKSUM:
@@ -616,10 +626,6 @@ class Filepart():
     #     print()
     #     pass
 
-    def get_header_size(self):
-        pass
-
-
 # How many bytes will it takes to store this number by the given bytes_num
 def len_of_bytes_num(num: int, bytes_num: int = 1) -> int:
     return len(num_to_versatile_bytes(num, bytes_num))
@@ -641,7 +647,7 @@ def checksum_to_bytes(checksum: str) -> bytes:
         hex1 = checksum[i:2 + i][0]
         hex2 = checksum[i:2 + i][1]
         _bytes = byte_from_2hex(hex1, hex2)
-    return _bytes
+    return _bytes ### HERE <== Some problem that returns only one byte
 
 
 def get_file_checksum(file: io.BufferedReader, pointer: int = 0, return_pointer: bool = True) -> str:
@@ -875,17 +881,18 @@ def print_bytes_max():
         print(i, ':', f'{2 ** (8 * i):,}', " ==> ", sizeof_fmt(2 ** (8 * i)))
 
 
-# save 8
+# save 9
 if __name__ == "__main__":
-    # print(os.getcwd())
-    # file_name = input("File name: ")
-    # # Filepart(file_name)
+    print(os.getcwd())
+    file_name = input("File name: ")
+    f = open(file_name, 'rb')
     # size = input("Size: ")
-    # flags = Flags()
-    # flags.order_version = Ordering.PART_NUM1
-    # flags.storing_size = False  # Recommended to be false
-    # flags.num_rapping = NumRapping.ADDING
-    # flags.checksum_type = Checksum.NO_CHECKSUM
+    flags = Flags()
+    flags.order_version = Ordering.PART_NUM3
+    flags.storing_size = True  # Recommended to be false
+    flags.num_rapping = NumRapping.ADDING
+    flags.checksum_type = Checksum.CHECKSUM4
     # fp = Filepart.auto_open(file_name, flags)
+    fp = Filepart.auto_open(file_name, flags)
     # to_fi(file_name, size, flags)
     pass
