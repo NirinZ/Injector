@@ -142,20 +142,48 @@ class Flags:
     def checksum_type(self, value) -> None:
         self.__checksum_type = Checksum(value)
 
-class Filepart:
+class Filepart():
     
     def __init__(self, filename):
         file = open(filename, 'rb')
+        name = file.name
         if not check_format(file):
             raise Exception("The file format is not supported")
-        sorce_file = open(filename, 'rb')
-        sorce_file.seek(12, 1)
-        sorce_flags = Flags(sorce_file.read(1))
-        name_len = read_versatile_number(sorce_file)
-        sorce_name = sorce_file.read(name_len)
-        sorce_order = 0     
+        file.seek(12, 1)
+        flags = Flags(file.read(1))
+        name_len = read_versatile_number(file)
+        group = file.read(name_len)
+        order = 0
+        if flags.order_version == Ordering.PART_NUM1:
+            order = read_versatile_number(file, 1)
+        elif flags.order_version == Ordering.PART_NUM3:
+            order = read_versatile_number(file, 3)
+        elif flags.order_version == Ordering.OFFSET5:
+            order = read_versatile_number(file, 5)
+        if flags.checksum_type == Checksum.CHECKSUM4:
+            checksum_bytes = file.read(4)
+            checksum = read_checksum(checksum_bytes)
+        if flags.storing_size:
+            data_bytes = ceil(log2(path.getsize(file.name) -(file.tell() + 1))/8)
+            data_size = int(file.read(data_bytes)[::-1].hex(), 16)
+        else:
+            data_size = path.getsize(file.name) - (file.tell() + 1) # +1 Because of the switch byte
+        if file.read(1) != switch_byte: # Checking of the switch byte
+            print(file.tell())
+            raise ValueError(f"Could not find switch byte! error in {file.tell() -1}")
+        # now the pointer points to the data
+            
 
-# ** Will NOT move the pointer 12 bytes! **
+
+def read_checksum(checksum_bytes:bytes) -> str:
+    checksum = ""
+    for byte in checksum_bytes:
+        hex1 = byte >> 4
+        hex2 = byte % 2**4
+        checksum += hex1 + hex2
+    return checksum
+
+# ** Will NOT move the pointer 12 bytes, and the pointer will point to the start! **
 def check_format(file) -> bool:
     file.seek(0)
     supported = file.read(12) == filepart_signature
@@ -190,25 +218,13 @@ def get_data_size(file) -> int:
 
 
 def split_filepart(file_name, size):
-    sorce_file = open(file_name, 'rb')
-    if not check_format(sorce_file):
-        raise Exception("The file format is not supported")
+    sorce_file = Filepart(file_name, 'rb')
+    
     if size >= path.getsize(sorce_file.name):
         new_name = os.path.join(dirname(sorce_file.name), splitext(basename(file_name))[0] + " - Last.filepart")
         os.rename(sorce_file.name, new_name)
         print("Done splitting the file")
         return
-    sorce_file.seek(12, 1)
-    sorce_flags = Flags(sorce_file.read(1))
-    name_len = read_versatile_number(sorce_file)
-    sorce_name = sorce_file.read(name_len)
-    sorce_order = 0
-    if flags.order_version == Ordering.PART_NUM1:
-        sorce_order = read_versatile_number(sorce_file, 1)
-    elif flags.order_version == Ordering.PART_NUM3:
-        sorce_order = read_versatile_number(sorce_file, 3)
-    elif flags.order_version == Ordering.OFFSET5:
-        sorce_order = read_versatile_number(sorce_file, 5)
 
 def write_filepart_header(file, size):
     pass
@@ -361,8 +377,12 @@ def print_bytes_max():
     for i in range(1, 16):
 	    print(i, ':', f'{2**(8*i):,}', " ==> ", sizeof_fmt(2**(8*i)))
 
+#save 2
 if __name__ == "__main__":
+    ## Code isn't working need fix!
+    print(os.getcwd())
     file_name = input("File name: ")
+    Filepart(file_name)
     size = input("Size: ")
     flags = Flags()
     flags.order_version = Ordering.PART_NUM1
