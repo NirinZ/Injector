@@ -170,7 +170,6 @@ class Flags:
     def checksum_type(self, value) -> None:
         self.__checksum_type = Checksum(value)
 
-class FilepartHeader:
     filepart_signature = b'FILEPART\r\n\x1a\n'
 
     def __init__(self, flags: Flags = Flags(), group: str = "none group",
@@ -653,6 +652,7 @@ def print_bytes_max():
 if __name__ == "__main__":
     print(os.getcwd())
     file_name = input("File name: ")
+    size = int(input("Size: "))
     # f = open(file_name, 'rb')
     # size = input("Size: ")
     flags = Flags()
@@ -662,10 +662,6 @@ if __name__ == "__main__":
     flags.checksum_type = Checksum.CHECKSUM4
     # fp = Filepart.auto_open(file_name, flags)
     fp = Filepart.auto_open(file_name, flags)
-    sp_fp = Filepart.split(fp, 20_000)
+    sp_fp = Filepart.split(fp, size)
     # to_fi(file_name, size, flags)
     pass
-
-# %%
-
-# %%
