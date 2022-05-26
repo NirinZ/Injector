@@ -1,20 +1,17 @@
 # %%
-from email import header
-from email.quoprimime import header_length
 import hashlib
 from sys import byteorder
 from math import log2
 from math import ceil
 import io
 import os
+import copy
 from os import path
 from os.path import splitext
 from os.path import basename
 from os.path import dirname
 from os.path import exists
 from enum import Enum, unique
-
-from matplotlib.pyplot import flag
 
 '''
 ---- Simbols ----
@@ -56,7 +53,6 @@ start_byte = b'\xaa'
 switch_byte = b'\x81'
 end_byte = b'\x55'
 
-
 @unique
 class Ordering(Enum):
     '''
@@ -73,14 +69,12 @@ class Ordering(Enum):
     OFFSET5 = 2
     OFFSET6 = 3
 
-
 @unique
 class NumRapping(Enum):
     ADDING = 0
     UTF_8 = 1
     UTF_16 = 2
     UTF_NIRIN = 3
-
 
 @unique
 class Checksum(Enum):
@@ -95,7 +89,6 @@ class Checksum(Enum):
     NO_CHECKSUM = 0
     CHECKSUM4 = 1
     ERROR_CORRECTION = 2
-
 
 class Flags:
     '''
@@ -120,6 +113,10 @@ class Flags:
         self.__is_last = bool(flags & 16)
         self.__num_rapping = NumRapping((flags & 12) >> 2)
         self.__checksum_type = Checksum(flags % 4)
+
+    # @classmethod
+    # def from_byte(cls, flags_byte=None)
+    # Make the constructor normal, and create a classmethod from byte
 
     def __int__(self) -> int:
         return int( \
@@ -227,7 +224,6 @@ class Filepart():
 
     def __init__(self, file: io.BufferedRandom, flags: Flags = Flags(), group: str = "none group",
                  order: int = 0, data_size: int = 0, header_length: int = 0, checksum=None):
-        #FilepartHeader.__init__(self, flags, group, order, checksum, data_size, header_length)
         self.file = file
         self.name = file.name
         self.flags = flags
@@ -278,8 +274,9 @@ class Filepart():
             print(file.tell())
             raise ValueError(f"Could not find switch byte! error in {file.tell() - 1}")
         header_length = file.tell()
+        print('before return', type(data_size), data_size)
         # Now the pointer points to the data
-        return cls(file, flags, group, order, checksum, data_size, header_length)
+        return cls(file, flags, group, order, data_size, header_length, checksum)
 
     @classmethod
     def create(cls, file: io.BufferedReader, flags: Flags = Flags()):
@@ -344,7 +341,7 @@ class Filepart():
         print()
 
         filepart.seek(header_length)
-        return cls(filepart, flags, group, order, checksum, data_size, header_length)
+        return cls(filepart, flags, group, order, data_size, header_length)
 
     @classmethod
     def split(cls, sorce_file, size: int):
@@ -354,7 +351,7 @@ class Filepart():
             return sorce_file
         
         avaliable_size = size - (len(Filepart.filepart_signature) + 2)  # +2 for the flags and switch byte
-        flags: Flags = sorce_file.flags
+        flags: Flags = copy.deepcopy(sorce_file.flags)
         group = sorce_file.group
         avaliable_size -= len_of_bytes_num(len(group.encode()))  # for the group len byte
         avaliable_size -= len(group.encode())  # for the group bytes
@@ -393,7 +390,8 @@ class Filepart():
         header_length = size - avaliable_size
 
         # Now all the header is calculated
-        file = open(os.path.dirname(sorce_file.name) + f"\{order}.filepart", 'wb')
+
+        file = open(os.path.dirname(os.path.abspath(sorce_file.name)) + f"\{group} - {order}.filepart", 'wb+')
         filepart = Filepart(file, flags, group, order, avaliable_size, header_length)
         filepart.write_header()
         filepart.write_data_from_filepart(sorce_file)
@@ -428,36 +426,7 @@ class Filepart():
         
         # -- Switch byte --
         self.file.write(switch_byte)
-    
-    # def write_header(, file_name = "unnamed") -> io.BufferedWriter:
-    #     file = open(file_name, 'wb') # Need fix to name
-    #     file.write(FilepartHeader.filepart_signature) # Signature
-    #     file.write(header.flags.to_byte()) # Flags
 
-    #     # Name
-    #     file.write(num_to_versatile_bytes(len(header.group.encode())))
-    #     file.write(header.group.encode())
-        
-    #     # Ordering
-    #     if header.flags.order_version == Ordering.PART_NUM1:
-    #         file.write(num_to_versatile_bytes(header.order))
-    #     elif header.flags.order_version == Ordering.PART_NUM3:
-    #         file.write(num_to_versatile_bytes(header.order, 3))
-    #     elif header.flags.order_version == Ordering.OFFSET5:
-    #         file.write(num_to_versatile_bytes(header.order, 5))
-
-    #     # Checksum
-    #     if header.flags.checksum_type == Checksum.CHECKSUM4:
-    #         checksum = get_file_checksum(data, data.tell())[:8]
-    #         file.write(checksum_to_bytes(checksum))
-
-    #     # Storing size
-    #     if header.flags.storing_size:
-    #         file.write(
-    #             header.data_size.to_bytes(ceil(log2(header.data_size + header.header_length) / 8), byteorder))
-        
-    #     # -- Switch byte --
-    #     file.write(switch_byte)
 
     def rewrite_flags(self):
         self.file.seek(12)
@@ -498,6 +467,7 @@ class Filepart():
         # Pointer should point to the data as always
         print()
         remaning_data = self.data_size
+        # print('Remaning data:',remaning_data)
         data_part = 0
         while remaning_data > 0 and data_part != b'':
             if remaning_data < 2**10: # 1KB
@@ -507,15 +477,22 @@ class Filepart():
                 data_part = sorce_file.file.read(2 ** 10)  # Reading 1KB
                 self.file.write(data_part)
                 print(100 * self.file.tell() / self.data_size, "%", end="            \r")
+            remaning_data -= len(data_part)
         print()
+        # print('dp', sorce_file.file.read(2 ** 10))
+        # print('rd', remaning_data)
+        # print('ds', self.data_size)
 
         if data_part == b'': # Last file
-            self.file.header.is_last = True
+            self.flags.is_last = True
             sorce_file.file.close()
             os.remove(sorce_file.name)
             self.rewrite_flags()
         else:
+            self.flags.is_last = False
+            self.rewrite_flags()
             sorce_file.remove_redundent()
+            sorce_file.file.seek(self.header_length)
 
         self.file.seek(self.header_length)
 
@@ -533,112 +510,39 @@ class Filepart():
 
     def remove_redundent(self) -> None:
         prev_file = self.file
-        self.file = open('temp', 'wb')
+        self.file = open('temp', 'wb+')
+        data_size = self.size_of_remaning_bytes(prev_file)
+        self.data_size = data_size
         self.write_header()
         self.write_data(prev_file)
         prev_file.close()
-        os.remove(prev_file.name, 'tmp')
+        self.file.close()
+        os.remove(prev_file.name) ### HERE not closing
         os.rename('temp', prev_file.name)
+        self.file = open(prev_file.name, 'rb+')
+        self.rewrite_checksum()
         print("Done removing redundant")
 
-
-    # def __init__(self, filename):
-    #     file = open(filename, 'rb')
-    #     name = file.name
-    #     if not check_format(file):
-    #         raise Exception("The file format is not supported")
-    #     file.seek(12, 1)
-    #     flags = Flags(file.read(1))
-    #     name_len = read_versatile_number(file)
-    #     group = file.read(name_len)
-    #     order = 0
-    #     if flags.order_version == Ordering.PART_NUM1:
-    #         order = read_versatile_number(file, 1)
-    #     elif flags.order_version == Ordering.PART_NUM3:
-    #         order = read_versatile_number(file, 3)
-    #     elif flags.order_version == Ordering.OFFSET5:
-    #         order = read_versatile_number(file, 5)
-    #     if flags.checksum_type == Checksum.CHECKSUM4:
-    #         checksum_bytes = file.read(4)
-    #         checksum = read_checksum(checksum_bytes)
-    #     else:
-    #         checksum = None
-    #     if flags.storing_size:
-    #         data_bytes = ceil(log2(path.getsize(file.name) - (file.tell() + 1)) / 8)
-    #         data_size = int(file.read(data_bytes)[::-1].hex(), 16)
-    #     else:
-    #         data_size = path.getsize(file.name) - (file.tell() + 1)  # +1 Because of the switch byte
-    #     if file.read(1) != switch_byte:  # Checking of the switch byte
-    #         print(file.tell())
-    #         raise ValueError(f"Could not find switch byte! error in {file.tell() - 1}")
-    #     header_length = file.tell()
-    # Now the pointer points to the data
-
-    # def __init__(self, sorce_file, size: int):
-    #     if sorce_file.__class__ != Filepart:
-    #         raise ValueError(f"sorce file should be a Filepart")
-    #     if size >= path.getsize(sorce_file.name):
-    #         self = sorce_file
-    #         return
-    #     self.file = open('splited.filepart', 'wb+')
-    #     name = self.file.name
-    #     self.file.write(Filepart.filepart_signature)
-    #     avaliable_size = size - (len(Filepart.filepart_signature) + 2)  # for the flags and switch byte
-    #     self.flags = sorce_file.flags
-    #     self.group = sorce_file.group
-    #     avaliable_size -= len_of_bytes_num(len(self.group.encode()))  # for the group len byte
-    #     avaliable_size -= len(self.group.encode())  # for the group bytes
-
-    #     if flags.checksum_type == Checksum.CHECKSUM4:
-    #         avaliable_size -= 4
-
-    #     order = 0
-    #     if flags.order_version == Ordering.PART_NUM1:
-    #         order = sorce_file.order + 1
-    #         avaliable_size -= len_of_bytes_num(order)
-    #     elif flags.order_version == Ordering.PART_NUM3:
-    #         order = sorce_file.order + 1
-    #         avaliable_size -= len_of_bytes_num(order, 3)
-    #     elif flags.order_version == Ordering.OFFSET5:
-    #         avaliable_size -= len_of_bytes_num(avaliable_size, 5)
-    #     elif flags.order_version == Ordering.OFFSET6:
-    #         avaliable_size -= len_of_bytes_num(avaliable_size, 6)
-
-    #     if flags.storing_size:
-    #         avaliable_size -= ceil(log2(size) / 8)
-
-    #     if flags.order_version == Ordering.OFFSET5 or flags.order_version == Ordering.OFFSET6:
-    #         order = avaliable_size
-
-    #     self.header_length = size - avaliable_size
-
-    #     # Now all the header is calculated
-
-    # def write_filepart(self, from_file):
-    #     print()
-    #     from_file.read(self.avaliable_size)
-
-    #     data = self.file.read(2 ** 10)  # Reading 1KB
-    #     while data != b'':  # While data is not empty
-    #         filepart.write(data)
-    #         data = file.read(2 ** 10)
-    #         print(100 * filepart.tell() / size, "%", end="            \r")
-    #     print()
-    #     pass
+    @staticmethod
+    def size_of_remaning_bytes(file : io.BufferedReader, move_pointer : bool = False) -> int:
+        prev_pointer = file.tell()
+        file.seek(0, 2)
+        sum = file.tell() - prev_pointer
+        if not move_pointer:
+            file.seek(prev_pointer)
+        return sum
 
 # How many bytes will it takes to store this number by the given bytes_num
 def len_of_bytes_num(num: int, bytes_num: int = 1) -> int:
     return len(num_to_versatile_bytes(num, bytes_num))
-
 
 def read_checksum(checksum_bytes: bytes) -> str:
     checksum = ""
     for byte in checksum_bytes:
         hex1 = byte >> 4
         hex2 = byte % 2 ** 4
-        checksum += hex1 + hex2
+        checksum += hex(hex1)[2:] + hex(hex2)[2:] ## Not tested
     return checksum
-
 
 def checksum_to_bytes(checksum: str) -> bytes:
     _bytes = b''
@@ -646,9 +550,8 @@ def checksum_to_bytes(checksum: str) -> bytes:
         i *= 2
         hex1 = checksum[i:2 + i][0]
         hex2 = checksum[i:2 + i][1]
-        _bytes = byte_from_2hex(hex1, hex2)
-    return _bytes ### HERE <== Some problem that returns only one byte
-
+        _bytes += byte_from_2hex(hex1, hex2)
+    return _bytes
 
 def get_file_checksum(file: io.BufferedReader, pointer: int = 0, return_pointer: bool = True) -> str:
     md5_hash = hashlib.md5()
@@ -664,14 +567,12 @@ def get_file_checksum(file: io.BufferedReader, pointer: int = 0, return_pointer:
 
     return digests
 
-
 # ** Will NOT move the pointer 12 bytes, and the pointer will point to the start! **
 def check_format(file: io.BufferedReader) -> bool:
     file.seek(0)
     supported = file.read(12) == filepart_signature
     file.seek(0)
     return supported
-
 
 # ** Does format check **
 def get_data_size(file) -> int:
@@ -696,132 +597,19 @@ def get_data_size(file) -> int:
         raise ValueError(f"Could not find switch byte! error in {file.tell() - 1}")
     data_size = path.getsize(file.name) - file.tell()
     file.seek(0)
-    return data_size
-
-
-def split_filepart(file_name, size):
-    sorce_file = Filepart(file_name)
-
-    if size >= path.getsize(sorce_file.name):
-        new_name = os.path.join(dirname(sorce_file.name), splitext(basename(file_name))[0] + " - Last.filepart")
-        os.rename(sorce_file.name, new_name)
-        print("Done splitting the file")
-        return
-
-    else:
-        new_file = Filepart(sorce_file.flags, sorce_file.group, checksum=sorce_file.checksum)
-
-
-def write_filepart_header(file, size):
-    pass
-
-
-def file_to_filepart(file_name: str, flags: Flags = Flags()):
-    file = open(file_name, 'rb')
-    size = path.getsize(file.name)
-
-    filepart = open(f"{file_name}.filepart", 'wb+')
-
-    # -- Signature -- (12B)
-    filepart.write('FILEPART'.encode())  # (8B)
-    filepart.write('\r\n'.encode())  # (2B)    0D 0A
-    filepart.write('\x1a'.encode())  # To stop `type`    (1B)    1A
-    filepart.write('\n'.encode())  # To stop `cat`     (1B)    0A
-
-    # -- Flags -- (1B)
-    flags.is_last = True  # Because on this function only one file is being created
-    filepart.write(flags.to_byte())  # (1B)
-
-    # -- Name -- (+1B + name)
-    # need to add content signature
-    name = basename(file.name)  # get file name
-    filepart.write(num_to_versatile_bytes(len(name.encode())))  # write the len of the file name (+1B)
-    # encoding for multibyte characters
-    filepart.write(name.encode())  # write the file name
-
-    # -- Ordering -- (+1B - +6B)
-    '''
-    ~~~~~ Ordering versions ~~~~~
-    num     ordering                                         supported
-    --------------------------------------------------------------------
-    0       part number (+1B) [50MB]                             V
-    1       part number (+3B) [5TB]                              V
-    2       offset from the original file start (+5B) [1TB]      V
-    3       offset from the original file start (+6B) [256TB]    X
-    '''
-    if flags.order_version == Ordering.PART_NUM1:
-        filepart.write(b'\x00')
-    elif flags.order_version == Ordering.PART_NUM3:
-        filepart.write(b'\x00' * 3)
-    elif flags.order_version == Ordering.OFFSET5:
-        filepart.write(b'\x00' * 5)
-
-    # -- Checksum --
-    '''
-    num     checksum                                         supported
-    --------------------------------------------------------------------
-    0       no checksum (0B)                                     V
-    1       checksum (4B)                                        V
-    2       checksum & error correction (not set yet)            X
-    3       not set yet                                          X
-    '''
-    if flags.checksum_type == Checksum.CHECKSUM4:
-        md5_hash = hashlib.md5()
-        data = file.read(2 ** 10)
-        while data != b'':
-            md5_hash.update(data)
-            data = file.read(2 ** 10)
-        digest = md5_hash.hexdigest()
-        digest = digest[:8]
-        for i in range(len(digest) // 2):
-            i *= 2
-            hex1 = digest[i:2 + i][0]
-            hex2 = digest[i:2 + i][1]
-            filepart.write(byte_from_2hex(hex1, hex2))
-        file.seek(0)
-
-    # -- Storing size --
-    # log2(file_len) /8
-    if flags.storing_size:
-        total_size = size + filepart.tell()
-        needed_bytes = ceil(log2(total_size) / 8)
-        # Because the gape can be maximum 1 byte I need to do just one check
-        filepart.write(
-            size.to_bytes(ceil(log2(total_size + needed_bytes) / 8), byteorder))  
-        # The amount of bytes associated to the size
-        # are based on the entire file size and not
-        # just the size of the data
-
-    # -- Switch byte --
-    filepart.write(switch_byte)
-
-    # -- Data --
-    print()
-    data = file.read(2 ** 10)  # Reading 1KB
-    while data != b'':  # While data is not empty
-        filepart.write(data)
-        data = file.read(2 ** 10)
-        print(100 * filepart.tell() / size, "%", end="            \r")
-    print()
-
-    # Taking a split from the file
-    split_filepart(file_name, size)
-
+    return data_size      
 
 def max_bytes_num(bytes_num: int = 1) -> int:
     return 2 ** (8 * bytes_num) - 1
 
-
 def full_byte(bina, bit_num=8):
     return (bit_num - len(bina)) * "0" + bina
-
 
 def byte_from_2hex(hex1: str, hex2: str) -> bytes:
     bin1 = full_byte(bin(int(hex1, 16))[2:], 4)
     bin2 = full_byte(bin(int(hex2, 16))[2:], 4)
     byte = int(bin1 + bin2, 2).to_bytes(1, byteorder)
     return byte
-
 
 def bytes_to_int(byts: bytes, _byteorder: str = byteorder) -> int:
     if _byteorder == 'little':
@@ -830,7 +618,6 @@ def bytes_to_int(byts: bytes, _byteorder: str = byteorder) -> int:
         return int(byts.hex(), 16)
     else:
         return int(byts.hex(), 16)
-
 
 # byte_num is the default number of bytes that will be written for the smallest value and will multiply by it
 def num_to_versatile_bytes(num: int, bytes_num: int = 1, _byteorder: str = byteorder) -> bytes:
@@ -841,7 +628,6 @@ def num_to_versatile_bytes(num: int, bytes_num: int = 1, _byteorder: str = byteo
     _bytes += num.to_bytes(bytes_num, _byteorder)
     return _bytes
 
-
 # ** Moving the pointer **
 def read_versatile_number(file, bytes_num: int = 1) -> int:
     current_bytes = bytes_to_int(file.read(bytes_num))
@@ -851,22 +637,6 @@ def read_versatile_number(file, bytes_num: int = 1) -> int:
         total_num += current_bytes
     return total_num
 
-
-def to_fi(file_name: str, size: int, flags: Flags = Flags()) -> None:
-    if not exists(file_name):
-        print("File does not exist: " + file_name)
-        input()
-        exit()
-    if exists(path.join(dirname(file_name),
-                        splitext(basename(file_name))[0] + ".filepart")):  # The file already been trimed
-        print("Found existing file: " + path.join(dirname(file_name)), splitext(basename(file_name))[0] + ".filepart")
-        split_filepart(file_name, size)
-    else:
-        print("Could not find a file, creating a new one", path.join(dirname(file_name)),
-              splitext(basename(file_name)[0] + ".filepart"))
-        file_to_filepart(file_name, flags)
-
-
 def sizeof_fmt(num, suffix="B"):
     print(f"{num:,}")
     for unit in ["", "K", "M", "G", "T", "P", "E", "Z"]:
@@ -875,24 +645,27 @@ def sizeof_fmt(num, suffix="B"):
         num /= 1024.0
     return f"{num:.1f}Y{suffix}"
 
-
 def print_bytes_max():
     for i in range(1, 16):
         print(i, ':', f'{2 ** (8 * i):,}', " ==> ", sizeof_fmt(2 ** (8 * i)))
 
-
-# save 9
+# Working version
 if __name__ == "__main__":
     print(os.getcwd())
     file_name = input("File name: ")
-    f = open(file_name, 'rb')
+    # f = open(file_name, 'rb')
     # size = input("Size: ")
     flags = Flags()
-    flags.order_version = Ordering.PART_NUM3
-    flags.storing_size = True  # Recommended to be false
+    flags.order_version = Ordering.OFFSET5
+    flags.storing_size = False  # Recommended to be false
     flags.num_rapping = NumRapping.ADDING
     flags.checksum_type = Checksum.CHECKSUM4
     # fp = Filepart.auto_open(file_name, flags)
     fp = Filepart.auto_open(file_name, flags)
+    sp_fp = Filepart.split(fp, 20_000)
     # to_fi(file_name, size, flags)
     pass
+
+# %%
+
+# %%
