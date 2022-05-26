@@ -169,47 +169,7 @@ class Flags:
     @checksum_type.setter
     def checksum_type(self, value) -> None:
         self.__checksum_type = Checksum(value)
-
-    filepart_signature = b'FILEPART\r\n\x1a\n'
-
-    def __init__(self, flags: Flags = Flags(), group: str = "none group",
-                 order: int = 0, data_size: int = 0, header_length: int = 0):
-        self.flags = flags
-        self.group = group
-        self.order = order
-        self.data_size = data_size
-        self.header_length = header_length
-
-    def write_header(self, file_name = "unnamed") -> io.BufferedWriter:
-        file = open(file_name, 'wb') # Need fix to name
-        file.write(FilepartHeader.filepart_signature) # Signature
-        file.write(self.flags.to_byte()) # Flags
-
-        # Name
-        file.write(num_to_versatile_bytes(len(self.group.encode())))
-        file.write(self.group.encode())
         
-        # Ordering
-        if self.flags.order_version == Ordering.PART_NUM1:
-            file.write(num_to_versatile_bytes(self.order))
-        elif self.flags.order_version == Ordering.PART_NUM3:
-            file.write(num_to_versatile_bytes(self.order, 3))
-        elif self.flags.order_version == Ordering.OFFSET5:
-            file.write(num_to_versatile_bytes(self.order, 5))
-
-        # Checksum
-        if self.flags.checksum_type == Checksum.CHECKSUM4:
-            checksum = get_file_checksum(data, data.tell())[:8]
-            file.write(checksum_to_bytes(checksum))
-
-        # Storing size
-        if self.flags.storing_size:
-            file.write(
-                self.data_size.to_bytes(ceil(log2(self.data_size + self.header_length) / 8), byteorder))
-        
-        # -- Switch byte --
-        file.write(switch_byte)
-
 class Filepart():
 
     '''
