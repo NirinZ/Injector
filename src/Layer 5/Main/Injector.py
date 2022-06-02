@@ -1,4 +1,5 @@
 # %%
+import math
 import time
 import os
 import os.path
@@ -9,8 +10,12 @@ from PIL import Image
 ####
 # להכין כלאס של תמונה שיהיה אפשר לעשות פעולות כמו לקרוא ולהזיז מצביע
 ####
+# בגלל שהחולץ משתמש בפיל אז חייב לקחת עפ פיקסל שלם ולא ע"פ צבעים
 
 class Injector:
+
+    supported_colors = len('RGB')
+
     bit_num = 2
 
     temp_pixel = ""
@@ -31,7 +36,6 @@ class Injector:
         self.img.setflags(write=1)
 
         self.file_size = os.path.getsize(file_name)
-        self.expected_pixel = self.file_size/(self.bit_num*3/8)
         self.available_space = self.calculate_space(self.image_name, self.bit_num)
 
         if(self.file_size > self.available_space):
@@ -47,6 +51,13 @@ class Injector:
         self.write_bin(self.full_byte(bin(bit_num-1)[2:], 3)) # Writing the bit_num in the first pixel # -1 because 1-8 so 7(111) = 8
         self.bit_num = bit_num
 
+        self.expected_pixel = self.file_size * 8 // (self.bit_num * self.supported_colors) + 1 + self.get_max_size_pixels_count() # +1 For the bit_num pixel
+    
+        if self.expected_pixel > self.available_space:
+            raise Exception("Some error occurred on the file size and last pixel")
+
+        self.write_bin(self.get_max_block(self.expected_pixel))
+        print(self.get_max_block(self.expected_pixel))
         self.read_from_file()
         end_time = time.time()
         total_time = end_time - start_time
@@ -75,10 +86,30 @@ class Injector:
             br.append(i)
         return b, br
 
+    def get_nearest_block(self, num: int) -> str:
+        bina = bin(num)[2:]
+        # Formula: bit_num * (supported_colors * X) = len
+        # How many pixels do I need to store a sertion number.
+        multiplier = math.ceil(len(bina)/(self.bit_num * self.supported_colors))
+        next_block = self.bit_num * self.supported_colors * multiplier
+        return self.full_byte(bina, next_block)
+
+    def get_max_size_pixels_count(self) -> int:
+        max_size =  self.img.shape[0] * self.img.shape[1]
+        bina = bin(max_size)[2:]
+        pixels_num = math.ceil(len(bina)/(self.bit_num * self.supported_colors))
+        return pixels_num
+
+    def get_max_block(self, num: int) -> str:
+        max_block = self.bit_num * self.supported_colors * self.get_max_size_pixels_count()
+        return self.full_byte(bin(num)[2:], max_block)
+
     @staticmethod
     def calculate_space(image_name, bit_num):
         img = np.array(Image.open(image_name))
-        return int(img.size * bit_num / 8)  -4 # For bit_num pixel (RGBA)
+        max_size =  img.shape[0] * img.shape[1]
+        multiplier = math.ceil(len(bin(max_size)[2:])/(bit_num * Injector.supported_colors))
+        return int(img.size * bit_num / 8)  - Injector.supported_colors - multiplier # For bit_num pixel (RGB/ RGBA)
 
     @staticmethod
     def sizeof_fmt(num, suffix="B"):
@@ -112,8 +143,8 @@ class Injector:
             # print(data)
             data = data[self.bit_num:]
             if len(temp_pixel) == self.bit_num: # Always True
-                self.img[self.row, self.column, self.px] = int(bin(self.img[self.row, self.column, self.px])[2:][:-self.bit_num] + temp_pixel, 2) # set color RGB
-                if self.px == 2:                                      # Taking the previus pixel int color
+                self.img[self.row, self.column, self.px] = int(bin(self.img[self.row, self.column, self.px])[2:][:-self.bit_num] + temp_pixel, 2) # set new color
+                if self.px == self.supported_colors-1:                  # Taking the previus pixel int color
                     self.px = 0
                     if self.column == self.img.shape[1] - 1:
                         self.column = 0

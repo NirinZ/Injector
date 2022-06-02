@@ -10,6 +10,9 @@ from sys import byteorder
 # שינוי מינימלי בביטים האחרונים של הקובץ
 
 class Extractor:
+
+    supported_colors = len('RGB')
+
     bit_num = 2
 
     temp_pixel = ""
@@ -24,16 +27,17 @@ class Extractor:
     current_pixel = 0
     last_pixel = 0
 
-    def __init__(self, image_name, file_name, last_pixel):
+    def __init__(self, image_name, file_name):
         self.image_name = image_name
         self.file_name = file_name
         start_time = time.time()
         self.img = Image.open(image_name)
         self.file = open(file_name, "wb")
         self.pixels = self.img.load() # creates the pixel map
-        self.last_pixel = last_pixel
 
         self.bit_num = self.get_bit_num()
+        self.last_pixel = self.get_last_pixel()
+        self.header_len = 1 + self.get_size_block()
         self.write_to_image()
         self.file.close()
         end_time = time.time()
@@ -58,6 +62,7 @@ class Extractor:
     def full_byte(bina, bit_num=8):
         return (bit_num - len(bina)) * "0" + bina
 
+
     def get_bit_num(self, default_bit_num: int = 1) -> int:
         buffer = ''
         for color in self.pixels[0,0]:
@@ -66,14 +71,28 @@ class Extractor:
         self.current_pixel += 1
         return int(buffer, 2) + 1
 
+    def get_size_block(self) -> int:
+        max_size = self.img.size[0] * self.img.size[1]
+        bina = bin(max_size)[2:]
+        needed_pixels = math.ceil(len(bina)/(self.bit_num * self.supported_colors))
+        return needed_pixels
+
+    def get_last_pixel(self) -> int:
+        buffer = ''
+        for i in range(self.get_size_block()):
+            for color in self.pixels[i+1, 0]: # +1 For the bit_num pixel
+                byte = self.full_byte(bin(color)[2:], self.bit_num)[-self.bit_num:]
+                buffer += byte
+            self.current_pixel += 1
+        return int(buffer, 2)
 
     def write_to_image(self):
-        first_run = True
         print(f"Bit_num =", self.bit_num)
+        print(f'Last pixel =', self.last_pixel)
         for i in range(self.img.size[1]):   #for each row
             for j in range(self.img.size[0]):  #for each column
-                if first_run:
-                    first_run = False
+                if self.header_len > 0:
+                    self.header_len -= 1
                     continue
                 for color in self.pixels[j,i]: # color RGB
                     byte = self.full_byte(bin(color)[2:], self.bit_num)[-self.bit_num:] # I care just about the bit_num, so I'm not compliting the entire byte.
@@ -92,6 +111,5 @@ class Extractor:
 if __name__ == "__main__":
     image_name = input("Name of the image: ")
     # image_name = "goku.png"
-    pixel = int(input("Pixel: "))
     
-    Ext = Extractor(image_name, "OutFile", pixel)
+    Ext = Extractor(image_name, "OutFile")
