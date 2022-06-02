@@ -71,6 +71,14 @@ class Ordering(Enum):
 
 @unique
 class NumRapping(Enum):
+    '''
+    num     format                                         supported
+    --------------------------------------------------------------------
+    0       normal adding                                        V
+    1       utf-8                                                X
+    2       utf-16                                               X
+    3       utf-nirin                                            X
+    '''
     ADDING = 0
     UTF_8 = 1
     UTF_16 = 2
@@ -95,7 +103,7 @@ class Flags:
     0 0 -> Ordering version
     0 -> Is supportes storing data size
     0 -> Is last
-    0 0 -> Num rapping format {0: normal adding, V | 1: utf-8, X | 2: utf-16, X | 3: utf-nirin, X} #Encryption type will be in the second layer {0: 1byte, 1: multybyte}
+    0 0 -> Num rapping format  #Encryption type will be in the second layer {0: 1byte, 1: multybyte}
     0 0 -> Checksum type
     '''
     __order_version: Ordering = Ordering.OFFSET5
@@ -188,24 +196,40 @@ class Filepart():
         self.flags = flags
         self.group = group
         self.order = order
+        self.checksum = checksum
         self.data_size = data_size
         self.header_length = header_length
-        self.checksum = checksum
         # File pointer should point to the data
+
+    def __gt__(self, other):
+        return self.order > other.order
+    
+    def __lt__(self, other):
+        return self.order < other.order
 
     # Does not close the file!
     @classmethod
     def auto_open(cls, filename: str, flags: Flags = Flags()):
         if not os.path.exists(filename):
             raise IOError('File %s does not exist' % filename)
-        file = open(filename, 'rb')
+        file = open(filename, 'rb+')
         if check_format(file):
-            return Filepart.open(file)
+            return Filepart.open_file(file)
         else:
             return Filepart.create(file, flags)
 
     @classmethod
-    def open(cls, file: io.BufferedReader):
+    def open(cls, filename: str):
+        if not os.path.exists(filename):
+            raise IOError('File %s does not exist' % filename)
+        file = open(filename, 'rb+')
+        if check_format(file):
+            return Filepart.open_file(file)
+        else:
+            raise Exception('File %s is not supported' % filename)
+
+    @classmethod
+    def open_file(cls, file: io.BufferedReader):
         if not check_format(file):
             raise Exception("The file format is not supported")
         file.seek(12, 1)
@@ -233,7 +257,7 @@ class Filepart():
             print(file.tell())
             raise ValueError(f"Could not find switch byte! error in {file.tell() - 1}")
         header_length = file.tell()
-        print('before return', type(data_size), data_size)
+        # print('before return', type(data_size), data_size)
         # Now the pointer points to the data
         return cls(file, flags, group, order, data_size, header_length, checksum)
 
@@ -357,6 +381,9 @@ class Filepart():
 
         return filepart
 
+    def fix_pointer(self):
+        self.file.seek(self.header_length)
+
     def write_header(self) -> None:
         self.file.seek(0)
         self.file.write(Filepart.filepart_signature) # Signature
@@ -385,7 +412,6 @@ class Filepart():
         
         # -- Switch byte --
         self.file.write(switch_byte)
-
 
     def rewrite_flags(self):
         self.file.seek(12)

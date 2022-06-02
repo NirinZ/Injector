@@ -5,6 +5,52 @@ import os.path
 import numpy as np
 from PIL import Image
 
+'''
+# %%
+from Injector import Injector
+
+"sf".split
+
+print(Injector.sizeof_fmt(Injector.calculate_space(r"C:\Users\zniri\Desktop\Coding\Languages\Python\Python Projects\Injector\goku.png", 3)))
+
+def pix_num(space, bit_num):
+    pix = space//(bit_num*3/8)
+    x = pix//144
+    return f'{int(9*x):,}, {int(16*x):,}, {int(pix):,}'
+
+# %%
+import cv2
+
+
+from PIL import Image
+image = Image.open("path/.../image.png")
+image = image.resize((500,500),Image.ANTIALIAS)
+image.save(fp="newimage.png")
+
+name = 'test.png'
+img = cv2.imread(name, cv2.IMREAD_UNCHANGED)
+
+#Get colors to RGBA
+if(len(img.shape) == 2):
+    img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGBA)
+elif(img.shape[2] == 3):
+    img = cv2.cvtColor(img, cv2.COLOR_RGB2RGBA)
+# img = img.convert("RGBA")
+
+#Get to base 16 bit depth
+# img = np.array(img, dtype=np.uint16)
+img = img.astype('uint16')
+img *= 256 # Making the values fit
+
+# img = cv2.cvtColor(img, cv2.COLOR_RGB2LAB)
+cv2.imwrite("out - "+name, img)
+# cv2.IMREAD_UNCHANGED -> to preserve
+# cv2.COLORRGB2RGBA -> to convert
+# cv2.cvtColor -> change in code
+# Some image processing ...
+'''
+
+
 # img = Image.new( 'RGB', (250,250), "black") #creating a new image
 
 # # Image.fromarray(img, 'RGB').show()
