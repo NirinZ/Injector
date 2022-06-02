@@ -24,15 +24,16 @@ class Extractor:
     current_pixel = 0
     last_pixel = 0
 
-    def __init__(self, image_name, file_name, bit_num, last_pixel):
+    def __init__(self, image_name, file_name, last_pixel):
         self.image_name = image_name
         self.file_name = file_name
-        self.bit_num = bit_num
         start_time = time.time()
         self.img = Image.open(image_name)
         self.file = open(file_name, "wb")
         self.pixels = self.img.load() # creates the pixel map
         self.last_pixel = last_pixel
+
+        self.bit_num = self.get_bit_num()
         self.write_to_image()
         self.file.close()
         end_time = time.time()
@@ -57,11 +58,25 @@ class Extractor:
     def full_byte(bina, bit_num=8):
         return (bit_num - len(bina)) * "0" + bina
 
+    def get_bit_num(self, default_bit_num: int = 1) -> int:
+        buffer = ''
+        for color in self.pixels[0,0]:
+            byte = self.full_byte(bin(color)[2:], default_bit_num)[-default_bit_num:]
+            buffer += byte
+        self.current_pixel += 1
+        return int(buffer, 2) + 1
+
+
     def write_to_image(self):
+        first_run = True
+        print(f"Bit_num =", self.bit_num)
         for i in range(self.img.size[1]):   #for each row
             for j in range(self.img.size[0]):  #for each column
+                if first_run:
+                    first_run = False
+                    continue
                 for color in self.pixels[j,i]: # color RGB
-                    byte = self.full_byte(bin(color)[2:], self.bit_num)[-self.bit_num:]
+                    byte = self.full_byte(bin(color)[2:], self.bit_num)[-self.bit_num:] # I care just about the bit_num, so I'm not compliting the entire byte.
                     # print(byte)
                     self.buffer += byte
                 # self.file.write(self.bitstring_to_bytes('0110100001101001'))
@@ -72,13 +87,11 @@ class Extractor:
             # print(self.buffer)
             self.file.write(self.bitstring_to_bytes(self.buffer[ :len(self.buffer) -(len(self.buffer)%8)]))
             self.buffer = self.buffer[len(self.buffer) -(len(self.buffer)%8):]
-            print(100 * self.current_pixel/ self.last_pixel,"%", end="            \r")
+            print(f'{100 * self.current_pixel/ self.last_pixel:.1f}',"%", end="            \r")
 
 if __name__ == "__main__":
-    num = int(input("Bit-num: "))
-    # num = 7
     image_name = input("Name of the image: ")
     # image_name = "goku.png"
     pixel = int(input("Pixel: "))
     
-    Ext = Extractor(image_name, "OutFile", num, pixel)
+    Ext = Extractor(image_name, "OutFile", pixel)

@@ -5,67 +5,10 @@ import os.path
 import numpy as np
 from PIL import Image
 
-'''
-# %%
-from Injector import Injector
 
-"sf".split
-
-print(Injector.sizeof_fmt(Injector.calculate_space(r"C:\Users\zniri\Desktop\Coding\Languages\Python\Python Projects\Injector\goku.png", 3)))
-
-def pix_num(space, bit_num):
-    pix = space//(bit_num*3/8)
-    x = pix//144
-    return f'{int(9*x):,}, {int(16*x):,}, {int(pix):,}'
-
-# %%
-import cv2
-
-
-from PIL import Image
-image = Image.open("path/.../image.png")
-image = image.resize((500,500),Image.ANTIALIAS)
-image.save(fp="newimage.png")
-
-name = 'test.png'
-img = cv2.imread(name, cv2.IMREAD_UNCHANGED)
-
-#Get colors to RGBA
-if(len(img.shape) == 2):
-    img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGBA)
-elif(img.shape[2] == 3):
-    img = cv2.cvtColor(img, cv2.COLOR_RGB2RGBA)
-# img = img.convert("RGBA")
-
-#Get to base 16 bit depth
-# img = np.array(img, dtype=np.uint16)
-img = img.astype('uint16')
-img *= 256 # Making the values fit
-
-# img = cv2.cvtColor(img, cv2.COLOR_RGB2LAB)
-cv2.imwrite("out - "+name, img)
-# cv2.IMREAD_UNCHANGED -> to preserve
-# cv2.COLORRGB2RGBA -> to convert
-# cv2.cvtColor -> change in code
-# Some image processing ...
-'''
-
-
-# img = Image.new( 'RGB', (250,250), "black") #creating a new image
-
-# # Image.fromarray(img, 'RGB').show()
-# img.setflags(write=1)
-# # for (x,y,rgb), value in np.ndenumerate(img):
-# #     img[x,y,rgb] = 175 # set color RGB
-# start_time = time.time()
-# for i in range(img.shape[0]):   #for each column
-#     for j in range(img.shape[1]):
-#         for px in range(img.shape[2]):
-#             img[i,j,px] = 175 # set color RGB
-# end_time = time.time()
-# total_time = end_time - start_time
-# print("Time: ", total_time)
-
+####
+# להכין כלאס של תמונה שיהיה אפשר לעשות פעולות כמו לקרוא ולהזיז מצביע
+####
 
 class Injector:
     bit_num = 2
@@ -83,9 +26,8 @@ class Injector:
     def __init__(self, image_name, file_name, bit_num = 2):
         self.image_name = image_name
         self.file_name = file_name
-        self.bit_num = bit_num
         start_time = time.time()
-        self.img = np.array(Image.open(image_name))
+        self.img = np.array(Image.open(image_name).convert('RGB'))
         self.img.setflags(write=1)
 
         self.file_size = os.path.getsize(file_name)
@@ -101,6 +43,10 @@ class Injector:
         # self.write_string("This image hed injected!")  # verefication  //24 bytes
         # self.write_bin("00000000")  # version //1 byte
         # self.write_bin("10101010")  # start of file //1 byte
+        self.bit_num = 1
+        self.write_bin(self.full_byte(bin(bit_num-1)[2:], 3)) # Writing the bit_num in the first pixel # -1 because 1-8 so 7(111) = 8
+        self.bit_num = bit_num
+
         self.read_from_file()
         end_time = time.time()
         total_time = end_time - start_time
@@ -132,7 +78,7 @@ class Injector:
     @staticmethod
     def calculate_space(image_name, bit_num):
         img = np.array(Image.open(image_name))
-        return int(img.size * bit_num / 8)
+        return int(img.size * bit_num / 8)  -4 # For bit_num pixel (RGBA)
 
     @staticmethod
     def sizeof_fmt(num, suffix="B"):
@@ -165,9 +111,9 @@ class Injector:
             temp_pixel = data[:self.bit_num]
             # print(data)
             data = data[self.bit_num:]
-            if len(temp_pixel) == self.bit_num:
+            if len(temp_pixel) == self.bit_num: # Always True
                 self.img[self.row, self.column, self.px] = int(bin(self.img[self.row, self.column, self.px])[2:][:-self.bit_num] + temp_pixel, 2) # set color RGB
-                if self.px == 2:
+                if self.px == 2:                                      # Taking the previus pixel int color
                     self.px = 0
                     if self.column == self.img.shape[1] - 1:
                         self.column = 0
@@ -211,12 +157,13 @@ class Injector:
             index = int(len(self.buffer) / self.bit_num) * self.bit_num
             self.make_subpixels(self.buffer[:index])
             self.buffer = self.buffer[index:]
-        if self.buffer != "":
+        if self.buffer != "": # Useless
             self.make_subpixels(self.buffer)
             self.buffer = ""
 
 
 if __name__ == "__main__":
+    print(os.getcwd())
     num = int(input("Bit-num: "))
     # num = 7
     image_name = input("Name of the image: ")
