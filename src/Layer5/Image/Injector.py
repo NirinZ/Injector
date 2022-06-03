@@ -1,16 +1,23 @@
 # %%
 import math
 import time
+import sys
 import os
 import os.path
 import numpy as np
 from PIL import Image
 
+# Path scr\Layer5\Main\__file__
+src_path = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+sys.path.append(os.path.join(src_path, "Layer6"))
+import Loading
 
 ####
 # להכין כלאס של תמונה שיהיה אפשר לעשות פעולות כמו לקרוא ולהזיז מצביע
 ####
 # בגלל שהחולץ משתמש בפיל אז חייב לקחת עפ פיקסל שלם ולא ע"פ צבעים
+##################
+# יכול להיות שהתמונה יכולה להיטען מהר יותר אם אני לא משתמש בכל הגודל שלה
 
 class Injector:
 
@@ -34,6 +41,7 @@ class Injector:
         start_time = time.time()
         self.img = np.array(Image.open(image_name).convert('RGB'))
         self.img.setflags(write=1)
+        self.last_pixel = self.img.shape[0] * self.img.shape[1]
 
         self.file_size = os.path.getsize(file_name)
         self.available_space = self.calculate_space(self.image_name, self.bit_num)
@@ -53,11 +61,13 @@ class Injector:
 
         self.expected_pixel = self.file_size * 8 // (self.bit_num * self.supported_colors) + 1 + self.get_max_size_pixels_count() # +1 For the bit_num pixel
     
-        if self.expected_pixel > self.available_space:
+        if self.expected_pixel > self.last_pixel:
+            print("Expected pixel:", self.expected_pixel)
+            print("Available space:", self.available_space)
             raise Exception("Some error occurred on the file size and last pixel")
 
         self.write_bin(self.get_max_block(self.expected_pixel))
-        print(self.get_max_block(self.expected_pixel))
+
         self.read_from_file()
         end_time = time.time()
         total_time = end_time - start_time
@@ -69,7 +79,12 @@ class Injector:
         ima.show()
         extension = os.path.splitext(image_name)[1]
         # ima.save("save" + extension)
-        ima.save("save.png")
+
+        self.out_name = file_name + ".png"
+        Loading.T_loading1("Saving the output image...")
+        ima.save(self.out_name)
+        Loading.end1()
+        ima.close()
 
     @staticmethod
     def full_byte(bina, bit_num=8):
@@ -94,9 +109,9 @@ class Injector:
         next_block = self.bit_num * self.supported_colors * multiplier
         return self.full_byte(bina, next_block)
 
+    # Get the number of pixels that needed to store the number of the last pixel
     def get_max_size_pixels_count(self) -> int:
-        max_size =  self.img.shape[0] * self.img.shape[1]
-        bina = bin(max_size)[2:]
+        bina = bin(self.last_pixel)[2:]
         pixels_num = math.ceil(len(bina)/(self.bit_num * self.supported_colors))
         return pixels_num
 
@@ -159,9 +174,9 @@ class Injector:
                 self.make_subpixels(temp_pixel)
 
     def read_from_file(self):	
-        file = open(self.file_name, "rb")	
+        file = open(self.file_name, "rb")
         buffer = ""	
-        for byte in file.read():	
+        for byte in file.read():
             buffer += self.full_byte(bin(byte)[2:])
             if len(buffer) >= self.bit_num:
                 index = int(len(buffer) / self.bit_num) * self.bit_num # שולח מספר שמתחלק במקדם ביטים
@@ -170,6 +185,7 @@ class Injector:
         if buffer != "":
             self.make_subpixels(buffer, True)
             buffer = ""
+        file.close()
 
     def write_string(self, data):
         for i in data:

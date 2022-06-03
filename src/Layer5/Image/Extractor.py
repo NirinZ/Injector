@@ -27,7 +27,7 @@ class Extractor:
     current_pixel = 0
     last_pixel = 0
 
-    def __init__(self, image_name, file_name):
+    def __init__(self, image_name, file_name:str="OutFile"):
         self.image_name = image_name
         self.file_name = file_name
         start_time = time.time()

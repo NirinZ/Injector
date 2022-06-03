@@ -262,7 +262,7 @@ class Filepart():
         return cls(file, flags, group, order, data_size, header_length, checksum)
 
     @classmethod
-    def create(cls, file: io.BufferedReader, flags: Flags = Flags()):
+    def create(cls, file: io.BufferedReader, in_flags: Flags = Flags()):
         data_size = path.getsize(file.name)
 
         filepart = open(f"{file.name}.filepart", 'wb+')
@@ -271,6 +271,7 @@ class Filepart():
         filepart.write(filepart_signature)  # (12B)
 
         # -- Flags -- (1B)
+        flags: Flags = copy.deepcopy(in_flags)
         flags.is_last = True  # Because on this function only one file is being created
         filepart.write(flags.to_byte())  # (1B)
 
@@ -316,12 +317,14 @@ class Filepart():
 
         # -- Data --
         print()
+        file.seek(0)
         data = file.read(2 ** 10)  # Reading 1KB
         while data != b'':  # While data is not empty
             filepart.write(data)
             data = file.read(2 ** 10)
             print(100 * filepart.tell() / data_size, "%", end="            \r")
         print()
+        file.close()
 
         filepart.seek(header_length)
         return cls(filepart, flags, group, order, data_size, header_length)
