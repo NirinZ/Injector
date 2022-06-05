@@ -98,6 +98,9 @@ class Decoder:
                     self.files.pop(i)
 
     def check_formats(self) -> bool:
+        ###################################################################################
+        # Needs to add a check for the group, So I can order the files by their groups!!! #
+        ###################################################################################
         order_version: Encoder.Ordering = self.files[0].flags.order_version
         num_rapping: Encoder.NumRapping = self.files[0].flags.num_rapping
         

@@ -80,7 +80,7 @@ class Injector:
         extension = os.path.splitext(image_name)[1]
         # ima.save("save" + extension)
 
-        self.out_name = file_name + ".png"
+        self.out_name = os.path.abspath(file_name + ".png")
         Loading.T_loading1("Saving the output image...")
         ima.save(self.out_name)
         Loading.end1()
@@ -121,10 +121,10 @@ class Injector:
 
     @staticmethod
     def calculate_space(image_name, bit_num):
-        img = np.array(Image.open(image_name))
-        max_size =  img.shape[0] * img.shape[1]
+        img = Image.open(image_name)
+        max_size =  img.size[0] * img.size[1]
         multiplier = math.ceil(len(bin(max_size)[2:])/(bit_num * Injector.supported_colors))
-        return int(img.size * bit_num / 8)  - Injector.supported_colors - multiplier # For bit_num pixel (RGB/ RGBA)
+        return int(max_size * Injector.supported_colors * bit_num / 8)  - Injector.supported_colors - (multiplier * Injector.supported_colors) # For bit_num pixel (RGB/ RGBA)
 
     @staticmethod
     def sizeof_fmt(num, suffix="B"):
@@ -164,7 +164,7 @@ class Injector:
                     if self.column == self.img.shape[1] - 1:
                         self.column = 0
                         self.row += 1
-                        print(f'{100 * self.row*self.img.shape[1]/self.expected_pixel:.1f}',"%", end='           \r')
+                        print("Injecting the data ", f'{100 * self.row*self.img.shape[1]/self.expected_pixel:.1f}',"%", end='           \r')
                     else:
                         self.column += 1
                 else:

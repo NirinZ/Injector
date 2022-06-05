@@ -106,7 +106,7 @@ class Extractor:
             # print(self.buffer)
             self.file.write(self.bitstring_to_bytes(self.buffer[ :len(self.buffer) -(len(self.buffer)%8)]))
             self.buffer = self.buffer[len(self.buffer) -(len(self.buffer)%8):]
-            print(f'{100 * self.current_pixel/ self.last_pixel:.1f}',"%", end="            \r")
+            print("Extracting the data ", f'{100 * self.current_pixel/ self.last_pixel:.1f}',"%", end="            \r")
 
 if __name__ == "__main__":
     image_name = input("Name of the image: ")

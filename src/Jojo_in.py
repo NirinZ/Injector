@@ -21,25 +21,18 @@ def file_input_loop(string: str="") -> str:
       file = os.path.abspath(input(string))
     return file
 
-if __name__ == "__main__":
-    
+def _in(img, bit_num, file) -> str:
+
     print("\n################")
-    print("# Preperations #")
+    print(f"# {img} #")
     print("################\n")
     
-    print(os.getcwd())
-
-    img = file_input_loop("Enter the image: ")
-    print(CalcSpace.print_all_bit_num(Injector.Injector.calculate_space, img))
-
-    bit_num = int(input("Enter the bit_num: "))
     size = Injector.Injector.calculate_space(img, bit_num)
 
-    file = file_input_loop("Enter the file to inject: ")
     if os.path.splitext(file)[1] != ".filepart":
-        if not os.path.exists("temp - "+os.path.basename(file)):
-            os.mkdir("temp - "+os.path.basename(file))
-        os.chdir("temp - "+os.path.basename(file))
+        if not os.path.exists("Images - "+os.path.basename(file)): # Here because the extension will be .filepart
+            os.mkdir("Images - "+os.path.basename(file))
+        os.chdir("Images - "+os.path.basename(file))
         # Now all files will be created in the temp {file} folder
         
         password = input("Enter the password to the file: ")
@@ -63,7 +56,11 @@ if __name__ == "__main__":
         dir = filepart.group
         if os.path.splitext(dir)[1] == ".enc":
             dir = os.path.splitext(dir)[0]
-        os.chdir("temp - " + dir)
+        if not os.getcwd().endswith("Images - " + dir):
+            if os.path.exists("Images - " + dir):
+                os.chdir("Images - " + dir)
+            else:
+                os.chdir(os.path.dirname(file))
         split = Encoder.Filepart.split(filepart, size)
 
     filepart.file.close()
@@ -83,4 +80,14 @@ if __name__ == "__main__":
     injector = Injector.Injector(img, file_name, bit_num)
     os.remove(file_name)
 
-    print(injector.out_name)    
+    return injector.out_name
+
+if __name__ == "__main__":
+    print(os.getcwd())
+
+    img = file_input_loop("Enter the image: ")
+    print(CalcSpace.print_all_bit_num(Injector.Injector.calculate_space, img))
+    bit_num = int(input("Enter the bit_num: "))
+    file = file_input_loop("Enter the file to inject: ")
+
+    print(_in(img, bit_num, file))

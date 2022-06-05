@@ -24,7 +24,7 @@ def file_input_loop(string: str="") -> str:
 def out(img:str) -> str:
 
     print("\n################")
-    print("#      OUT     #")
+    print(f"#      {img}     #")
     print("################\n")
     
 

@@ -3,6 +3,7 @@ import random as rd
 from os.path import splitext
 from os.path import basename
 from os.path import exists
+from os.path import getsize
 
 def dec(file: str, offset, close: bool = True) -> str or io.BufferedRandom:
   if not exists(file):
@@ -13,6 +14,9 @@ def dec(file: str, offset, close: bool = True) -> str or io.BufferedRandom:
       dir = splitext(dir)[0]
     
   nf = open(dir + ' - out', 'wb+')
+  size = getsize(file)
+  num = 0
+
   with open(file, 'rb+') as of:
     for i in of.read():
       i -= offset
@@ -20,6 +24,9 @@ def dec(file: str, offset, close: bool = True) -> str or io.BufferedRandom:
         i += 256
       t = i.to_bytes(1, 'little')
       nf.write(t)
+      num += 1
+      if num % 100 == 0:
+        print("Encrypting the file... ", f'{100 * num/size:.1f}',"%", end='           \r')
 
   if close:
     nf.close()

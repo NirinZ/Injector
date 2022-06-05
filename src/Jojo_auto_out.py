@@ -1,11 +1,6 @@
 import os
-import sys
 import Jojo_out
 import Jojo_last
-from Layer2.one_byte import enc, dec
-from Layer3.filepart import Decoder, Encoder
-from Layer5.Image import Injector, Extractor
-from Layer6 import CalcSpace
 
 # src_path = os.path.dirname(os.path.dirname(__file__))
 # sys.path.append(os.path.join(src_path, "Layer 2\\Enc\\1byte"))
