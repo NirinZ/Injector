@@ -24,7 +24,7 @@ class Decoder:
         self.sort_ordering()
         if not self.check_ordering():
             print("You are missing some files in the middle!")
-            exit(1)    
+            exit(1)
 
         self.file: str = ""
         self.is_last: bool = False
@@ -94,8 +94,9 @@ class Decoder:
             if self.files[i].flags.checksum_type == Encoder.Checksum.CHECKSUM4:
                 checksum = Encoder.get_file_checksum(self.files[i].file, self.files[i].header_length)[:8]
                 if self.files[i].checksum != checksum:
-                    print(f"File {self.files[i].name} have mismatching checksum!")
-                    self.files.pop(i)
+                    print(f"File {self.files[i].name} have mismatching checksum! | Might be due to Extraction problem...|")
+                    if input("Do you want to include this file anyway? [Y/N]: ").upper() == 'N':
+                        self.files.pop(i)
 
     def check_formats(self) -> bool:
         ###################################################################################
@@ -117,7 +118,7 @@ class Decoder:
                 self.files.append(Filepart.open(f))
             except Exception as e:
                 print("Error in", f + ':\n', str(e))
-        if not self.check_formats():
+        if len(self.files) > 0 and not self.check_formats():
             print("Not all files have the same format!")
         
 # def auto_all(self, path: str) -> str:
@@ -138,4 +139,4 @@ class Decoder:
 if __name__ == '__main__':
     print(os.getcwd())
     dir_path = os.path.abspath(input("Enter the directory for all the fileparts: "))
-    Decoder(dir_path)
+    print(Decoder(dir_path).file)

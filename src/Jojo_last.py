@@ -50,4 +50,3 @@ def last(dir_path: str) -> str:
 if __name__ == "__main__":
     print('\n' + os.getcwd())
     print(last(file_input_loop("Enter the dir path: ")))
-

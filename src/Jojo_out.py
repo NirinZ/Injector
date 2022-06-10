@@ -63,6 +63,6 @@ def out(img:str) -> str:
 
 if __name__ == "__main__":
     print('\n' + os.getcwd())
-    out(file_input_loop("Enter the image: "))
+    print(out(file_input_loop("Enter the image: ")))
 
     #print(injector.out_name)

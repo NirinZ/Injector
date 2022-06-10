@@ -15,9 +15,14 @@ import Loading
 ####
 # להכין כלאס של תמונה שיהיה אפשר לעשות פעולות כמו לקרוא ולהזיז מצביע
 ####
-# בגלל שהחולץ משתמש בפיל אז חייב לקחת עפ פיקסל שלם ולא ע"פ צבעים
+# בגלל שהחולץ משתמש בפיל אז חייב לקחת עפ פיקסל שלם ולא ע"פ צבעים. בכל מקרה זה ישתנה לגודל קובץ ולא לפיקסל
 ##################
 # יכול להיות שהתמונה יכולה להיטען מהר יותר אם אני לא משתמש בכל הגודל שלה
+
+###############################################
+# שינוי מינימלי בביטים האחרונים של הקובץ שגורם לצ'אקסום לא נכון
+# לכן צריך לעשות שמאוכסן הגודל של הקובץ ולא מיקום הפיקסל בתמונה
+###############################################
 
 class Injector:
 
@@ -35,16 +40,20 @@ class Injector:
     image_name = ""
     file_name = ""
 
-    def __init__(self, image_name, file_name, bit_num = 2):
+    def __init__(self, image_name, file_name, bit_num = 2, img_multiplier: float = 1.0):
         self.image_name = image_name
         self.file_name = file_name
         start_time = time.time()
-        self.img = np.array(Image.open(image_name).convert('RGB'))
+        self.img_multiplier = abs(img_multiplier)
+
+        self.img = Image.open(image_name)
+        self.img = self.img.resize((int(self.img.size[0]*self.img_multiplier), int(self.img.size[1]*self.img_multiplier)))
+        self.img = np.array(self.img.convert('RGB'))
         self.img.setflags(write=1)
         self.last_pixel = self.img.shape[0] * self.img.shape[1]
 
         self.file_size = os.path.getsize(file_name)
-        self.available_space = self.calculate_space(self.image_name, self.bit_num)
+        self.available_space = self.calculate_space(self.image_name, self.bit_num, self.img_multiplier)
 
         if(self.file_size > self.available_space):
             raise OSError("The file is too big! pay attetion to the space limitation of the bit num.")
@@ -120,9 +129,10 @@ class Injector:
         return self.full_byte(bin(num)[2:], max_block)
 
     @staticmethod
-    def calculate_space(image_name, bit_num):
+    def calculate_space(image_name, bit_num, img_multiplier: float = 1.0):
+        img_multiplier = abs(img_multiplier)
         img = Image.open(image_name)
-        max_size =  img.size[0] * img.size[1]
+        max_size =  int(img.size[0] * img_multiplier) * int(img.size[1] * img_multiplier)
         multiplier = math.ceil(len(bin(max_size)[2:])/(bit_num * Injector.supported_colors))
         return int(max_size * Injector.supported_colors * bit_num / 8)  - Injector.supported_colors - (multiplier * Injector.supported_colors) # For bit_num pixel (RGB/ RGBA)
 

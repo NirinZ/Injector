@@ -21,10 +21,10 @@ import math
 
 
 def calculate_space_img(image_name, bit_num, supported_colors: int = 3):
-    img = np.array(Image.open(image_name))
-    max_size =  img.shape[0] * img.shape[1]
+    img = Image.open(image_name)
+    max_size =  img.size[0] * img.size[1]
     multiplier = math.ceil(len(bin(max_size)[2:])/(bit_num * supported_colors))
-    return int(img.size * bit_num / 8)  - supported_colors - multiplier # For bit_num pixel (RGB/ RGBA)
+    return int(img.size * bit_num * 3 / 8)  - supported_colors - multiplier # For bit_num pixel (RGB/ RGBA)
 
 #----------------------------------------------------------------
 
