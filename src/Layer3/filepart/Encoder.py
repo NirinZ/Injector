@@ -322,7 +322,7 @@ class Filepart():
         while data != b'':  # While data is not empty
             filepart.write(data)
             data = file.read(2 ** 10)
-            print("Coping the data to the created file ", 100 * filepart.tell() / data_size, "%", end="                                                     ")
+            print("Coping the data to the created file ", 100 * filepart.tell() / data_size, "%", end="             \r")
         print()
         file.close()
 
@@ -464,7 +464,7 @@ class Filepart():
             else:    
                 data_part = sorce_file.file.read(2 ** 10)  # Reading 1KB
                 self.file.write(data_part)
-                print("Writing data from filepart ", 100 * self.file.tell() / self.data_size, "%", end="                                    ")
+                print("Writing data from filepart ", 100 * self.file.tell() / self.data_size, "%", end="            \r")
             remaning_data -= len(data_part)
         print()
         # print('dp', sorce_file.file.read(2 ** 10))
