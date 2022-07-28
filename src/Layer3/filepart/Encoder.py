@@ -110,7 +110,7 @@ class Flags:
     __storing_size: bool = False
     __is_last: bool = True
     __num_rapping: NumRapping = NumRapping.ADDING
-    __checksum_type: Checksum = Checksum.CHECKSUM4
+    __checksum_type: Checksum = Checksum.NO_CHECKSUM # Checksum.CHECKSUM4 Because of issue with the layer 5 that adding extra bytes
 
     def __init__(self, flags_byte=None):
         if flags_byte is None:
