@@ -26,7 +26,7 @@ def dec(file: str, offset, close: bool = True) -> str or io.BufferedRandom:
       nf.write(t)
       num += 1
       if num % 100 == 0:
-        print("Encrypting the file... ", f'{100 * num/size:.1f}',"%", end='           \r')
+        print("Decrypting the file... ", f'{100 * num/size:.1f}',"%", end='           \r')
     print()
 
   if close:
