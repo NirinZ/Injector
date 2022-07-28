@@ -39,8 +39,9 @@ if __name__ == "__main__":
             total_size += Injector.Injector.calculate_space(os.path.join(images_path, i), bit_num, img_multiplier)
 
         if file_size > total_size:
-            input("There is not enough space in the images... Please add more images.")
-            exit(1)
+            print("There is not enough space in the images... So the file will be partially injected.")
+            if input("Is it OK? (y/n):") != 'y':
+                exit(1)
 
         for img in os.listdir(images_path):
             dir_path = os.path.dirname(Jojo_in._in(os.path.join(images_path, img), bit_num, file, defaults))
@@ -66,6 +67,8 @@ if __name__ == "__main__":
                 if os.path.splitext(f)[1] == '.filepart':
                     file = os.path.join(dir_path, f)
                     print("Size left: ", os.path.getsize(file))
+            if input("Do you have more images? (y/n):") != 'y':
+                break
             img = file_input_loop("Enter an image: ")
             defaults = False if input("Use the default settings? (Y/N)") == 'N' else True
             dir_path = os.path.dirname(Jojo_in._in(img, bit_num, file, defaults))
