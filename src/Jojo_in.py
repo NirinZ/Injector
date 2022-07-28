@@ -104,13 +104,13 @@ def get_flags(defaults: bool = True) -> Encoder.Flags:
     
     return flags
 
-def _in(img, bit_num, file, defaults: bool = True) -> str:
+def _in(img, bit_num, file, defaults: bool = True, img_multiplier: float = 2.0) -> str:
 
     print("\n################")
     print(f"# {img} #")
     print("################\n")
 
-    img_multiplier = get_img_multilayer(defaults)
+    # img_multiplier = get_img_multilayer(defaults)
 
     size = Injector.Injector.calculate_space(img, bit_num, img_multiplier)
 

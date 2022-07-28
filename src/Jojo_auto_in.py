@@ -28,7 +28,7 @@ if __name__ == "__main__":
     bit_num = int(input("Enter the bit_num: "))
     file = file_input_loop("Enter the file to inject: ")
     defaults = False if input("Use the default settings? (Y/N) ").upper() == 'N' else True
-    img_multiplier = Jojo_in.get_img_multilayer(defaults)
+    img_multiplier: float = Jojo_in.get_img_multilayer(False)
 
     if way.lower() == '1' or way.lower() == "auto":
         images_path = file_input_loop("Enter the path to the images: ")
@@ -44,7 +44,7 @@ if __name__ == "__main__":
                 exit(1)
 
         for img in os.listdir(images_path):
-            dir_path = os.path.dirname(Jojo_in._in(os.path.join(images_path, img), bit_num, file, defaults))
+            dir_path = os.path.dirname(Jojo_in._in(os.path.join(images_path, img), bit_num, file, defaults, img_multiplier))
 
             # If in there is a '.filepart' in the folder => The file still havent been fully injected
             if not True in [os.path.splitext(f)[1] == '.filepart' for f in os.listdir(dir_path)]:
