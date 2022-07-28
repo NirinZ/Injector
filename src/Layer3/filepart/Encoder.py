@@ -322,7 +322,7 @@ class Filepart():
         while data != b'':  # While data is not empty
             filepart.write(data)
             data = file.read(2 ** 10)
-            print("Coping the data to the created file ", 100 * filepart.tell() / data_size, "%", end="                                                      \r")
+            print("Coping the data to the created file ", 100 * filepart.tell() / data_size, "%", end="                                                     ")
         print()
         file.close()
 
