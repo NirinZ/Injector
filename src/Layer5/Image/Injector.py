@@ -53,11 +53,11 @@ class Injector:
         self.last_pixel = self.img.shape[0] * self.img.shape[1]
 
         self.file_size = os.path.getsize(file_name)
-        self.available_space = self.calculate_space(self.image_name, self.bit_num, self.img_multiplier)
+        self.available_space = self.calculate_space(self.image_name, bit_num, self.img_multiplier)
 
         if(self.file_size > self.available_space):
             print("Image name", self.image_name)
-            print("bit_num", self.bit_num)
+            print("bit_num", bit_num)
             print("Image multiplier", img_multiplier)
             print("Avaliable space", self.available_space)
             print("File size", self.file_size)
