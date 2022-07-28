@@ -464,7 +464,7 @@ class Filepart():
             else:    
                 data_part = sorce_file.file.read(2 ** 10)  # Reading 1KB
                 self.file.write(data_part)
-                print("Writing data from filepart ", 100 * self.file.tell() / self.data_size, "%", end="            \r")
+                print("Writing data from filepart ", 100 * self.file.tell() / self.data_size, "%", end="                                    ")
             remaning_data -= len(data_part)
         print()
         # print('dp', sorce_file.file.read(2 ** 10))
