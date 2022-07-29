@@ -12,6 +12,18 @@ src_path = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 sys.path.append(os.path.join(src_path, "Layer6"))
 import Loading
 
+#~~~~~~~~~~~~~~~~~~~~~~~
+'''
+בענף הזה אני אמור לשפר ביצועים. כרגע מה שעובד במאסטר זה סטרינגים.
+בקובץ הזה יש כרגע אינטים, אבל זה לא עובד.
+הדבר האופטימאלי שאמור לעבוד ולהיות הכי מהיר זה מערך של סיביות.
+כמובן שב-C++
+הוא יהיה הרבה יותר מהיר כי אני יכול להקצות מקום מראש בזיכרון.
+אבל גם כאן אם במקום סטרינג אני אשתמש במערך זה יהיה יותר מהיר, ולכן כשארצה לשפר ביצועים אני אצתרך
+להשתמש במערך במקום בסטרינגים
+'''
+#~~~~~~~~~~~~~~~~~~~~~~~
+
 ####
 # להכין כלאס של תמונה שיהיה אפשר לעשות פעולות כמו לקרוא ולהזיז מצביע
 ####
@@ -30,8 +42,8 @@ class Injector:
 
     bit_num = 2
 
-    temp_pixel = ""
-    buffer = ""
+    temp_pixel = 1
+    buffer = 1
 
     column = 0
     row = 0
@@ -150,6 +162,17 @@ class Injector:
             num /= 1024.0
         return f"{num:.1f}Y{suffix}"
 
+    @staticmethod
+    def bin_len(num: int) -> int:
+        return int(math.log2(num)) #+1
+
+    @staticmethod
+    def bin_trim_head(num: int, index: int) -> int:
+        return num % 2**(Injector.bin_len(num)-(index+1))
+
+    @staticmethod
+    def bin_trim_tail(num: int, index: int) -> int:
+        return Injector.bin_trim_head(num, 0) // 2**(Injector.bin_len(num)-index)
 
     # def make_pixel(self, tempicx):
     #     current_pixel = self.pixels[self.row, self.column]
@@ -167,13 +190,19 @@ class Injector:
     #     else:
     #         self.column += 1
 
-    def make_subpixels(self, data, last=False):
-        for i in range(int(len(data) / self.bit_num)):
-            temp_pixel = data[:self.bit_num]
+    def make_subpixels(self, data: int, last=False):
+        for i in range(int(self.bin_len(data) / self.bit_num)):
+            #* temp_pixel = data[:self.bit_num]
+            temp_pixel = self.bin_trim_tail(data, self.bit_num)
             # print(data)
-            data = data[self.bit_num:]
-            if len(temp_pixel) == self.bit_num: # Always True
-                self.img[self.row, self.column, self.px] = int(bin(self.img[self.row, self.column, self.px])[2:][:-self.bit_num] + temp_pixel, 2) # set new color
+            data = self.bin_trim_head(data, self.bit_num)
+            #* if self.bin_len(temp_pixel) == self.bit_num: # Always True
+            if True: # Always True
+                value = self.img[self.row, self.column, self.px]
+                value >>= self.bin_len(self.bit_num)
+                value <<= self.bin_len(self.bit_num)
+                value += temp_pixel
+                self.img[self.row, self.column, self.px] = value # set new color
                 if self.px == self.supported_colors-1:                  # Taking the previus pixel int color
                     self.px = 0
                     if self.column == self.img.shape[1] - 1:
@@ -190,16 +219,22 @@ class Injector:
 
     def read_from_file(self):	
         file = open(self.file_name, "rb")
-        buffer = ""	
+        #* buffer = ""	
+        buffer = 1
         for byte in file.read():
-            buffer += self.full_byte(bin(byte)[2:])
-            if len(buffer) >= self.bit_num:
-                index = int(len(buffer) / self.bit_num) * self.bit_num # שולח מספר שמתחלק במקדם ביטים
-                self.make_subpixels(buffer[:index])
-                buffer = buffer[index:]
-        if buffer != "":
+            #* buffer += self.full_byte(bin(byte)[2:])
+            buffer <<= 8
+            buffer += byte
+            #* if len(buffer) >= self.bit_num:
+            if self.bin_len(buffer) >= self.bit_num:
+                index = int(self.bin_len(buffer) / self.bit_num) * self.bit_num # שולח מספר שמתחלק במקדם ביטים
+                #* self.make_subpixels(buffer[:index])
+                self.make_subpixels(self.bin_trim_tail(buffer, index))
+                #* buffer = buffer[index:]
+                buffer %= self.bin_trim_head(buffer, index)
+        if buffer != 0:
             self.make_subpixels(buffer, True)
-            buffer = ""
+            buffer = 0
         file.close()
 
     def write_string(self, data):
@@ -214,24 +249,26 @@ class Injector:
             self.buffer = ""
 
     def write_bin(self, data):
+        self.buffer <<= self.bin_len(data)
         self.buffer += data
-        while len(self.buffer) >= self.bit_num:
-            index = int(len(self.buffer) / self.bit_num) * self.bit_num
-            self.make_subpixels(self.buffer[:index])
-            self.buffer = self.buffer[index:]
-        if self.buffer != "": # Useless
+        while self.bin_len(self.buffer) >= self.bit_num:
+            index = int(self.bin_len(self.buffer) / self.bit_num) * self.bit_num
+            self.make_subpixels(self.bin_trim_tail(self.buffer,index))
+            self.buffer = self.bin_trim_head(self.buffer, index)
+        if self.buffer != 0: # Useless
             self.make_subpixels(self.buffer)
-            self.buffer = ""
+            self.buffer = 0
 
 
 if __name__ == "__main__":
     print(os.getcwd())
     num = int(input("Bit-num: "))
+    multiplier = float(input("Image multiplier: "))
     # num = 7
     image_name = input("Name of the image: ")
     # image_name = "goku.png"
-    print("The max is:", Injector.sizeof_fmt(Injector.calculate_space(image_name, num)))
-    Injector(image_name, input("Filename: "), num)
+    print("The max is:", Injector.sizeof_fmt(Injector.calculate_space(image_name, num, multiplier)))
+    Injector(image_name, input("Filename: "), num, multiplier)
     # Inj = Injector(image_name, "SpeedTest.mp3", num)
 
 # %%
