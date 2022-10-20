@@ -73,11 +73,21 @@ class Decoder:
 
         elif order_version == Encoder.Ordering.OFFSET5 or order_version == Encoder.Ordering.OFFSET6:
             offset: int = 0
-            for f in self.files:
+            for index, f in enumerate(self.files):
                 if offset < f.order:
                     return False
                 if offset > f.order:
-                    raise Exception("There is still no support for offset overlaping...")
+
+                    print('offset:', offset)
+                    print('New offset', f.order)
+                    print(f.name)
+                    self.files[index-1].file.seek(0,2)
+                    fsize=self.files[index-1].file.tell()
+
+                    self.files[index-1].file.truncate(fsize - (offset - f.order))
+                    self.files[index-1].fix_pointer()
+                    offset=f.order
+                    #*raise Exception("There is still no support for offset overlaping...")
                 offset += f.data_size
             return True
         
