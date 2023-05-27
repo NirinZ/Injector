@@ -140,6 +140,7 @@ class Injector:
         max_size =  int(img.size[0] * img_multiplier) * int(img.size[1] * img_multiplier)
         multiplier = math.ceil(len(bin(max_size)[2:])/(bit_num * Injector.supported_colors))
         return int(max_size * Injector.supported_colors * bit_num / 8)  - Injector.supported_colors - (multiplier * Injector.supported_colors) # For bit_num pixel (RGB/ RGBA)
+                                                                        # Because this injection system is per pixel, so I need to get the hole pixel to store some data (bit_num)
 
     @staticmethod
     def sizeof_fmt(num, suffix="B"):
