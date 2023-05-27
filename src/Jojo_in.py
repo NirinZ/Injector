@@ -1,7 +1,9 @@
 import os
 import sys
+import io
 from Layer2.one_byte import enc, dec
 from Layer3.filepart import Encoder
+from Layer4 import Combiner
 from Layer5.Image import Injector, Extractor
 from Layer6 import CalcSpace
 
@@ -103,6 +105,83 @@ def get_flags(defaults: bool = True) -> Encoder.Flags:
         flags.checksum_type = checksum_type
     
     return flags
+
+def layer2(file) -> io.BufferedRandom:
+    print("\n################")
+    print("#    Layer 2   #")
+    print("################\n")
+
+    password = input("Enter the password to the file: ")
+    enc_file = enc.encrypte(file, password, False)
+    return enc_file
+
+def layer3(enc_file: io.BufferedRandom, defaults: bool, size: int) -> Encoder.Filepart:
+        print("\n################")
+        print("#    Layer 3   #")
+        print("################\n")
+
+        flags = get_flags(defaults)
+        filepart = Encoder.Filepart.create(enc_file, flags)
+        split = Encoder.Filepart.split(filepart, size)
+        os.remove(enc_file.name)
+        filepart.file.close()
+        split.file.close()
+        return split
+
+def _ins(img, bit_num, files: list, defaults: bool = True, img_multiplier: float = 2.0) -> str:
+
+    print("\n################")
+    print(f"# {img} #")
+    print("################\n")
+
+    # img_multiplier = get_img_multilayer(defaults)
+
+    size = Injector.Injector.calculate_space(img, bit_num, img_multiplier)
+
+    file = files[0]
+
+    if os.path.splitext(file)[1] != ".filepart":
+        if not os.path.exists("Images - "+os.path.basename(file)): # Here because the extension will be .filepart
+            os.mkdir("Images - "+os.path.basename(file))
+        os.chdir("Images - "+os.path.basename(file))
+        # Now all files will be created in the temp {file} folder
+
+        enc_file = layer2(file)
+        split = layer3(enc_file, defaults, size)
+
+    else:
+        filepart = Encoder.Filepart.open(file)
+        dir = filepart.group
+        if os.path.splitext(dir)[1] == ".enc":
+            dir = os.path.splitext(dir)[0]
+        if not os.getcwd().endswith("Images - " + dir):
+            if os.path.exists("Images - " + dir):
+                os.chdir("Images - " + dir)
+            else:
+                os.chdir(os.path.dirname(file))
+        split = Encoder.Filepart.split(filepart, size)
+
+    filepart.file.close()
+    split.file.close()
+    
+    print("\n################")
+    print("#    Layer 4?  #")
+    print("################\n")
+
+    if Combiner.is_more_spase(size, split.name):
+        combined = Combiner.create()
+        
+    file_name = enc.encrypte(split.name, bit_num)
+    os.remove(split.name)
+
+    print("\n################")
+    print("#    Layer 5   #")
+    print("################\n")
+
+    injector = Injector.Injector(img, file_name, bit_num, img_multiplier)
+    os.remove(file_name)
+
+    return injector.out_name
 
 def _in(img, bit_num, file, defaults: bool = True, img_multiplier: float = 2.0) -> str:
 
