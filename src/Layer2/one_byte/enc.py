@@ -1,45 +1,69 @@
 import io
 import random as rd
-from os.path import exists
-from os.path import getsize
-from os.path import basename
+from os.path import exists, getsize, basename
 
-def enc(file: str, offset, close: bool = True) -> str or io.BufferedRandom:
-  if not exists(file):
-      raise Exception('File %s does not exist' % file)
+#################################################################
+# This script encrypts a given file using a user-provided       #
+# password. The password is converted into an offset using a    #
+# seeded random generator, and then this offset is applied to   #
+# each byte in the file to encrypt it. The encrypted data is    #
+# written to a new file with a '.enc' extension.                #
+#################################################################
 
-  nf = open(basename(file) + '.enc', 'wb+')
-  size = getsize(file)
-  num = 0
+def encrypt_file(file_path: str, offset, close: bool = True) -> str or io.BufferedRandom:
+    # Verify that the input file exists
+    if not exists(file_path):
+        raise Exception(f'File {file_path} does not exist')
 
-  with open(file, 'rb') as of:
-    for i in of.read():
-      i+=offset
-      if i > 255:
-        i -= 256
-      t = i.to_bytes(1, 'little')
-      nf.write(t)
-      num += 1
-      if num % 100 == 0:
-        print("Encrypting the file... ", f'{100 * num/size:.1f}',"%", end='           \r')
-    print()
-  
-  if close:
-    nf.close()
-    return nf.name
-  else:
-    nf.seek(0)
-    return nf
+    # Open a new file with .enc extension for storing the encrypted data
+    encrypted_file = open(basename(file_path) + '.enc', 'wb+')
 
-def pass_to_offset(pas):
-  rd.seed(pas)
-  return rd.randrange(256)
+    # Get the size of the input file for progress calculation
+    size = getsize(file_path)
+    num = 0  # Counter for encrypted bytes
 
-def encrypte(file: str, password: str, close: bool = True) -> str or io.BufferedRandom:
-  return enc(file, pass_to_offset(password), close)
+    # Open the input file in binary mode
+    with open(file_path, 'rb') as input_file:
+        # For each byte in the input file
+        for byte in input_file.read():
+            # Add the offset to the byte. If result is larger than 255, subtract 256
+            byte = (byte + offset) % 256
+            # Convert the integer back to byte and write to the encrypted file
+            encrypted_file.write(byte.to_bytes(1, 'little'))
+            num += 1
+
+            # Print progress every 100 bytes
+            if num % 100 == 0:
+                print("Encrypting the file... ", f'{100 * num / size:.1f}', "%", end='\r')
+
+        print("\nEncryption completed.")
+
+    # Close the output file if specified and return the filename, otherwise return the file object
+    if close:
+        encrypted_file.close()
+        return encrypted_file.name
+    else:
+        encrypted_file.seek(0)
+        return encrypted_file
+
+
+def pass_to_offset(password):
+    # Convert a password into an offset using a seeded random generator
+    rd.seed(password)
+    return rd.randrange(256)
+
+
+def encrypt(file_path: str, password: str, close: bool = True) -> str or io.BufferedRandom:
+    # Encrypt a file using a password
+    return encrypt_file(file_path, pass_to_offset(password), close)
+
 
 if __name__ == '__main__':
-  file = input("The File: ")
-  pas = input("Password: ")
-  encrypte(file, pas)
-  print("Done!")
+    # Get filename and password from the user
+    file_path = input("Enter the file path: ")
+    password = input("Enter the password: ")
+
+    # Encrypt the file
+    encrypt(file_path, password)
+
+    print("Encryption completed!")
