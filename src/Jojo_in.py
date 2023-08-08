@@ -126,7 +126,7 @@ def _in(img, bit_num, file, defaults: bool = True, img_multiplier: float = 2.0) 
         print("#    Layer 2   #")
         print("################\n")
 
-        enc_file = enc.encrypte(file, password, False)
+        enc_file = enc.encrypt(file, password, False)
 
         print("\n################")
         print("#    Layer 3   #")
@@ -156,7 +156,7 @@ def _in(img, bit_num, file, defaults: bool = True, img_multiplier: float = 2.0) 
     print("#    Layer 4?  #")
     print("################\n")
 
-    file_name = enc.encrypte(split.name, bit_num)
+    file_name = enc.encrypt(split.name, bit_num)
     os.remove(split.name)
 
     print("\n################")
