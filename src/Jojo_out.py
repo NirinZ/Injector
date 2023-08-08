@@ -38,7 +38,7 @@ def out(img:str) -> str:
     print("#    Layer 4?  #")
     print("################\n")
 
-    file = dec.decryption(extractor.file.name, extractor.bit_num, False)
+    file = dec.decrypt_file(extractor.file.name, extractor.bit_num, False)
 
     print("\n################")
     print("#    Layer 3   #")

@@ -43,7 +43,7 @@ def last(dir_path: str) -> str:
     print("################\n")
 
     password = input("Enter the password to the file: ")
-    file = dec.decryption(decoder.file, password)
+    file = dec.decrypt_file(decoder.file, password)
     return file
 
 

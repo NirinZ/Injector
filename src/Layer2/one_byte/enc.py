@@ -10,7 +10,7 @@ from os.path import exists, getsize, basename
 # written to a new file with a '.enc' extension.                #
 #################################################################
 
-def encrypt_file(file_path: str, offset, close: bool = True) -> str or io.BufferedRandom:
+def encrypt(file_path: str, offset, close: bool = True) -> str or io.BufferedRandom:
     # Verify that the input file exists
     if not exists(file_path):
         raise Exception(f'File {file_path} does not exist')
@@ -53,9 +53,9 @@ def pass_to_offset(password):
     return rd.randrange(256)
 
 
-def encrypt(file_path: str, password: str, close: bool = True) -> str or io.BufferedRandom:
+def encrypt_file(file_path: str, password: str, close: bool = True) -> str or io.BufferedRandom:
     # Encrypt a file using a password
-    return encrypt_file(file_path, pass_to_offset(password), close)
+    return encrypt(file_path, pass_to_offset(password), close)
 
 
 if __name__ == '__main__':
@@ -64,6 +64,6 @@ if __name__ == '__main__':
     password = input("Enter the password: ")
 
     # Encrypt the file
-    encrypt(file_path, password)
+    encrypt_file(file_path, password)
 
     print("Encryption completed!")
